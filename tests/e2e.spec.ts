@@ -71,10 +71,29 @@ async function selectMatOptionByLabel(page: Page, labelText: string, optionText:
 }
 
 async function setRadioByLabel(page: Page, groupLabel: string, optionText: string) {
-  const group = page.getByRole('radiogroup', { name: groupLabel });
-  const option = group.getByLabel(optionText);
-  await expect(option).toBeVisible();
-  await option.check();
+  // Try accessible role-based lookup first
+  try {
+    const group = page.getByRole('radiogroup', { name: groupLabel });
+    const option = group.getByLabel(optionText, { exact: true });
+    await option.check({ timeout: 1000 });
+    return;
+  } catch {}
+
+  // Fallback: locate the custom radio container by label text and click the option label
+  try {
+    const container = page.locator('bq-radio-button', {
+      has: page.locator(`label:has-text("${groupLabel}")`),
+    });
+    await container.waitFor({ state: 'visible', timeout: 1000 });
+    const optionLabel = container.locator('label', { hasText: optionText }).first();
+    await optionLabel.click({ timeout: 1000 });
+    return;
+  } catch {}
+
+  // Last resort: rely on unique option label without group context
+  const fallback = page.getByLabel(optionText, { exact: true });
+  await expect(fallback).toBeVisible();
+  await fallback.check();
 }
 
 async function clickNext(page: Page, buttonText: string = 'Next') {
