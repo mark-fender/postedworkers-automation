@@ -272,53 +272,58 @@ test('End-to-end notification flow', async ({ page }) => {
   // Next to Notifier details
   await clickProceed(page);
 
-  // SECTION 3 — Notifier details (person + company basics)
-  await fillTextInTestIdInput(page, 'P785_NatuurlijkPersoon-Voornaam_1', requireEnv('NOTIFIER_FIRST_NAME'));
-  await fillTextInTestIdInput(page, 'P785_NatuurlijkPersoon-Achternaam_1', requireEnv('NOTIFIER_LAST_NAME'));
+  // SECTION 3 — Notifier personal details
+  await fillTextByLabel(page, 'First name', requireEnv('NOTIFIER_FIRST_NAME'));
+  await fillTextByLabel(page, 'Surname', requireEnv('NOTIFIER_LAST_NAME'));
 
   // Only Mobile phone number is required
-  await fillTextInTestIdInput(page, 'P785_NatuurlijkPersoon-Telefoonnummer_1', requireEnv('NOTIFIER_PHONE'));
+  await fillTextByLabel(page, 'Mobile phone number', requireEnv('NOTIFIER_PHONE'));
 
-  await fillTextInTestIdInput(page, 'P785_NatuurlijkPersoon-Emailadres_1', requireEnv('NOTIFIER_EMAIL'));
+  await fillTextByLabel(page, 'E-mail address', requireEnv('NOTIFIER_EMAIL'));
+
+  // Next to Notifier company details
+  await clickProceed(page);
+
+  // SECTION 4 — Notifier company details
 
   // Country of establishment -> Slovakia
-  await selectMatOptionByText(page, 'P785_Organisatie-LandVanVestiging_1', 'Slovakia');
+  await selectMatOptionByLabel(page, 'Country of establishment', 'Slovakia');
 
   // Dutch Chamber of Commerce? -> No
-  await setRadioByTestId(page, 'P785_Organisatie-InKamerVanKoophandelJaNee_1', 'false');
+  await setRadioByLabel(page, 'Dutch Chamber of Commerce?', 'No');
 
   // Foreign Chamber of Commerce? -> Yes
-  await setRadioByTestId(page, 'P785_Organisatie-InBuitenlandseKamerJaNee_1', 'true');
+  await setRadioByLabel(page, 'Foreign Chamber of Commerce?', 'Yes');
 
   // Chamber number from env
-  await fillTextInTestIdInput(page, 'P785_Organisatie-KamerVanKoophandelNr_1', requireEnv('NOTIFIER_CHAMBER_NUMBER'));
+  await fillTextByLabel(page, 'Chamber of Commerce number', requireEnv('NOTIFIER_CHAMBER_NUMBER'));
 
   // Company name = first + last
   const notifierCompany = `${requireEnv('NOTIFIER_FIRST_NAME')} ${requireEnv('NOTIFIER_LAST_NAME')}`;
-  await fillTextInTestIdInput(page, 'P785_Organisatie-Bedrijfsnaam_1', notifierCompany);
+  await fillTextByLabel(page, 'Company name', notifierCompany);
 
   // VAT identification: “The company does not have a VAT identification number...”
-  await setRadioByTestId(page, 'P785_Organisatie-GeenBtwIdentificatie_1', 'true');
+  await setRadioByLabel(page, 'The company does not have a VAT identification number', 'Yes');
 
   // Notifier address (fill full address)
-  await fillTextInTestIdInput(page, 'P785_Adres-Straat_1', requireEnv('NOTIFIER_STREET'));
-  await fillTextInTestIdInput(page, 'P785_Adres-Huisnummer_1', requireEnv('NOTIFIER_HOUSE_NUMBER'));
-  await fillTextInTestIdInput(page, 'P785_Adres-Plaatsnaam_1', requireEnv('NOTIFIER_CITY'));
-  await fillTextInTestIdInput(page, 'P785_Adres-Postcode_1', requireEnv('NOTIFIER_POSTCODE'));
+  await fillTextByLabel(page, 'Street', requireEnv('NOTIFIER_STREET'));
+  await fillTextByLabel(page, 'House number', requireEnv('NOTIFIER_HOUSE_NUMBER'));
+  await fillTextByLabel(page, 'City', requireEnv('NOTIFIER_CITY'));
+  await fillTextByLabel(page, 'Postcode', requireEnv('NOTIFIER_POSTCODE'));
 
   // Reporter and self-employed are the same person -> Yes
-  await setRadioByTestId(page, 'P785_MelderZelfdePersoonJaNee_1', 'true');
+  await setRadioByLabel(page, 'Reporter and self-employed are the same person', 'Yes');
 
   // Date of birth
-  await fillTextInTestIdInput(page, 'P785_NatuurlijkPersoon-Geboortedatum_1', requireEnv('NOTIFIER_DATE_OF_BIRTH'));
+  await fillTextByLabel(page, 'Date of birth', requireEnv('NOTIFIER_DATE_OF_BIRTH'));
 
   // Nationality -> Slovakia
-  await selectMatOptionByText(page, 'P785_NatuurlijkPersoon-Nationaliteit_1', 'Slovakia');
+  await selectMatOptionByLabel(page, 'Nationality', 'Slovakia');
 
   // Next to Service recipient section
   await clickProceed(page);
 
-  // SECTION 4 — Service recipient: type, KVK lookup, VAT, address, contact
+  // SECTION 5 — Service recipient: type, KVK lookup, VAT, address, contact
   // Type of service recipient -> Company
   await selectMatOptionByText(page, 'P785_Dienstontvanger-Soort_1', 'Company');
 
@@ -354,7 +359,7 @@ test('End-to-end notification flow', async ({ page }) => {
   // Next to Work location section
   await clickProceed(page);
 
-  // SECTION 5 — Address/place where work will be performed
+  // SECTION 6 — Address/place where work will be performed
   // Does the workplace in NL have a known address? -> Yes
   await setRadioByTestId(page, 'P903_Werklocatie-BekendAdresJaNee_1', 'true');
 
@@ -381,7 +386,7 @@ test('End-to-end notification flow', async ({ page }) => {
   // Go to summary
   await clickProceed(page, 'Go to summary');
 
-  // SECTION 6 — Summary: confirm declaration and submit
+  // SECTION 7 — Summary: confirm declaration and submit
   await page.getByTestId('P437_Melder-Akkoordverklaring_1').locator('input[type="checkbox"]').check();
   // await clickByTestId(page, 'P437_Indienen_1');
 
