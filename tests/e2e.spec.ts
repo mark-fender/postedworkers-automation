@@ -89,9 +89,37 @@ async function setRadioByTestId(page: Page, groupTestId: string, valueTrueFalse:
 }
 
 async function fillTextByLabel(page: Page, labelText: string, value: string) {
-  const field = page.getByLabel(labelText);
-  await expect(field).toBeVisible();
-  await field.fill(value);
+  // Try straightforward accessible lookup first
+  try {
+    const field = page.getByLabel(labelText, { exact: true });
+    await expect(field).toBeVisible({ timeout: 1000 });
+    await field.click({ timeout: 1000 });
+    await field.fill(value);
+    if ((await field.inputValue()) !== value) {
+      // If the framework blocks direct fill (masked inputs), type instead
+      await field.fill('');
+      await field.pressSequentially(value);
+    }
+    await expect(field).toHaveValue(value);
+    return;
+  } catch {}
+
+  // Fallback: locate label manually and resolve its target input
+  const label = page.locator(`label:has-text("${labelText}")`).first();
+  await label.waitFor({ state: 'visible', timeout: 1000 });
+  const forAttr = await label.getAttribute('for');
+  let input = forAttr
+    ? page.locator(`#${forAttr}`)
+    : label.locator('xpath=..').locator('input, textarea').first();
+
+  await expect(input).toBeVisible({ timeout: 1000 });
+  await input.click({ timeout: 1000 });
+  await input.fill(value);
+  if ((await input.inputValue()) !== value) {
+    await input.fill('');
+    await input.pressSequentially(value);
+  }
+  await expect(input).toHaveValue(value);
 }
 
 async function selectMatOptionByLabel(page: Page, labelText: string, optionText: string) {
