@@ -53,6 +53,28 @@ async function setRadioByTestId(page: Page, groupTestId: string, valueTrueFalse:
   await radio.check();
 }
 
+async function fillTextByLabel(page: Page, labelText: string, value: string) {
+  const field = page.getByLabel(labelText);
+  await expect(field).toBeVisible();
+  await field.fill(value);
+}
+
+async function selectMatOptionByLabel(page: Page, labelText: string, optionText: string) {
+  const field = page.getByLabel(labelText);
+  await expect(field).toBeVisible();
+  await field.click();
+  const option = page.getByRole('option', { name: optionText, exact: true });
+  await expect(option).toBeVisible();
+  await option.click();
+}
+
+async function setRadioByLabel(page: Page, groupLabel: string, optionText: string) {
+  const group = page.getByRole('radiogroup', { name: groupLabel });
+  const option = group.getByLabel(optionText);
+  await expect(option).toBeVisible();
+  await option.check();
+}
+
 async function clickNext(page: Page, buttonText: string = 'Next') {
   await page.getByRole('button', { name: buttonText }).click();
   await waitForStableLoad(page);
@@ -118,29 +140,29 @@ test('End-to-end notification flow', async ({ page }) => {
 
   // SECTION 2 — First form page: worker/project basics
   // Are you self-employed? -> Yes
-  await setRadioByTestId(page, 'P785_CP_ZZPJaNee_1', 'true');
+  await setRadioByLabel(page, 'Are you self-employed?', 'Yes');
 
   // Once-a-year notification? -> No
-  await setRadioByTestId(page, 'P785_CP_JaarMeldingJaNee_1', 'false');
+  await setRadioByLabel(page, 'Once-a-year notification?', 'No');
 
   // Sector -> F. Construction
-  await selectMatOptionByText(page, 'P785_CP_Sector_1', 'F. Construction');
+  await selectMatOptionByLabel(page, 'Sector', 'F. Construction');
 
   // Subsector -> 41 Construction of buildings and development of building projects
-  await selectMatOptionByText(page, 'P785_CP_Subsector_1', '41 Construction of buildings and development of building projects');
+  await selectMatOptionByLabel(page, 'Subsector', '41 Construction of buildings and development of building projects');
 
   // Branch code -> 4120 Construction of residential and non-residential buildings
-  await selectMatOptionByText(page, 'P785_CP_Branchecode_1', '4120 Construction of residential and non-residential buildings');
+  await selectMatOptionByLabel(page, 'Branch code', '4120 Construction of residential and non-residential buildings');
 
   // Country of establishment -> Slovakia
-  await selectMatOptionByText(page, 'P785_CP_LandVanVestiging_1', 'Slovakia');
+  await selectMatOptionByLabel(page, 'Country of establishment', 'Slovakia');
 
   // Posting dates from JSON (convert to DD-MM-YYYY)
   const start = formatDateToDutchLocale(workLocation.start_date);
   const end = formatDateToDutchLocale(workLocation.end_date);
 
-  await fillTextInTestIdInput(page, 'P785_CP_StartDatum_1', start);
-  await fillTextInTestIdInput(page, 'P785_CP_EindDatum_1', end);
+  await fillTextByLabel(page, 'Scheduled start date of the posting', start);
+  await fillTextByLabel(page, 'Scheduled end date of the posting', end);
 
   // Next to Notifier details
   await clickNext(page);
