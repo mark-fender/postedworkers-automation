@@ -9,11 +9,11 @@ import workLocation from '../work_location.json';
 // Helpers
 // -------------------------------
 function requireEnv(name: string): string {
-  const v = process.env[name];
-  if (!v || !v.trim()) {
+  const value = process.env[name];
+  if (!value || !value.trim()) {
     throw new Error(`Missing required env var: ${name}`);
   }
-  return v.trim();
+  return value.trim();
 }
 
 async function waitForStableLoad(page: Page) {
@@ -36,9 +36,9 @@ async function fillTextInTestIdInput(page: Page, testId: string, value: string) 
 }
 
 async function clickByTestId(page: Page, testId: string) {
-  const el = page.getByTestId(testId);
-  await expect(el).toBeVisible();
-  await el.click();
+  const element = page.getByTestId(testId);
+  await expect(element).toBeVisible();
+  await element.click();
 }
 
 async function selectMatOption(page: Page, optionText: string) {
@@ -145,9 +145,9 @@ async function selectMatOptionByLabel(page: Page, labelText: string, optionText:
   // Last resort: click the label's "for" target and pick the option by text
   const label = page.locator(`label:has-text("${labelText}")`).first();
   await label.waitFor({ state: 'visible', timeout: 1000 });
-  const forAttr = await label.getAttribute('for');
-  if (forAttr) {
-    await page.locator(`#${forAttr}`).click({ timeout: 1000 });
+  const forAttribute = await label.getAttribute('for');
+  if (forAttribute) {
+    await page.locator(`#${forAttribute}`).click({ timeout: 1000 });
   } else {
     await label.click({ timeout: 1000 });
   }
@@ -192,19 +192,20 @@ function formatDateToDutchLocale(dotDate: string): string {
 
 async function pdokLookupPostalCode(page: Page, street: string, houseNumber: string, city: string): Promise<string> {
   // PDOK free geocoding lookup; we try to obtain a postcode by a combined query
-  const q = `${street} ${houseNumber}, ${city}`;
-  const url = `https://geocoding-api.pdok.nl/v3/free?q=${encodeURIComponent(q)}&limit=5`;
-  const resp = await page.request.get(url);
-  if (!resp.ok()) {
-    throw new Error(`PDOK request failed with status ${resp.status()}`);
+  const query = `${street} ${houseNumber}, ${city}`;
+  const lookupUrl = `https://geocoding-api.pdok.nl/v3/free?q=${encodeURIComponent(query)}&limit=5`;
+  const response = await page.request.get(lookupUrl);
+  if (!response.ok()) {
+    throw new Error(`PDOK request failed with status ${response.status()}`);
   }
-  const data = await resp.json();
-  const features = (data as any)?.features || [];
-  for (const f of features) {
-    const pc = f?.properties?.postcode || f?.properties?.postalcode;
-    if (pc) return pc;
+  const responseData = await response.json();
+  const responseFeatures = (responseData as any)?.features || [];
+  for (const responseFeature of responseFeatures) {
+    const postcode =
+      responseFeature?.properties?.postcode || responseFeature?.properties?.postalcode;
+    if (postcode) return postcode;
   }
-  throw new Error(`PDOK: No postcode found for query: ${q}`);
+  throw new Error(`PDOK: No postcode found for query: ${query}`);
 }
 
 // -------------------------------
@@ -263,11 +264,11 @@ test('End-to-end notification flow', async ({ page }) => {
   await selectMatOptionByLabel(page, 'Country of establishment', 'Slovakia');
 
   // Posting dates from JSON (convert to DD-MM-YYYY)
-  const start = formatDateToDutchLocale(workLocation.start_date);
-  const end = formatDateToDutchLocale(workLocation.end_date);
+  const startDate = formatDateToDutchLocale(workLocation.start_date);
+  const endDate = formatDateToDutchLocale(workLocation.end_date);
 
-  await fillTextByLabel(page, 'Scheduled start date of the posting', start);
-  await fillTextByLabel(page, 'Scheduled end date of the posting', end);
+  await fillTextByLabel(page, 'Scheduled start date of the posting', startDate);
+  await fillTextByLabel(page, 'Scheduled end date of the posting', endDate);
 
   // Next to Notifier details
   await clickProceed(page);
@@ -367,13 +368,18 @@ test('End-to-end notification flow', async ({ page }) => {
   await setRadioByTestId(page, 'P903_Adres-PostcodeCheckOverschrijven_1', 'false');
 
   // Derive postcode from PDOK using JSON street/city/houseNumber, then fill
-  const wlStreet = workLocation.street;
-  const wlCity = workLocation.city;
-  const wlHouse = workLocation.house_number;
-  const derivedPostcode = await pdokLookupPostalCode(page, wlStreet, wlHouse, wlCity);
+  const workLocationStreet = workLocation.street;
+  const workLocationCity = workLocation.city;
+  const workLocationHouseNumber = workLocation.house_number;
+  const derivedPostcode = await pdokLookupPostalCode(
+    page,
+    workLocationStreet,
+    workLocationHouseNumber,
+    workLocationCity
+  );
 
   await fillTextInTestIdInput(page, 'P903_Adres-PostcodeNederland_1', derivedPostcode);
-  await fillTextInTestIdInput(page, 'P903_Adres-Huisnummer_1', wlHouse);
+  await fillTextInTestIdInput(page, 'P903_Adres-Huisnummer_1', workLocationHouseNumber);
 
   // Work-location contact: phone + email from service recipient (env)
   await fillTextInTestIdInput(page, 'P903_Werklocatie-ContactTelefoonnummer_1', requireEnv('SERVICE_RECIPIENT_PHONE'));
