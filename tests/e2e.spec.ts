@@ -53,8 +53,8 @@ async function setRadioByTestId(page: Page, groupTestId: string, valueTrueFalse:
   await radio.check();
 }
 
-async function clickNext(page: Page, nextButtonTestId: string) {
-  await clickByTestId(page, nextButtonTestId);
+async function clickNext(page: Page, buttonText: string = 'Next') {
+  await page.getByRole('button', { name: buttonText }).click();
   await waitForStableLoad(page);
 }
 
@@ -143,7 +143,7 @@ test('End-to-end notification flow', async ({ page }) => {
   await fillTextInTestIdInput(page, 'P785_CP_EindDatum_1', end);
 
   // Next to Notifier details
-  await clickNext(page, 'P785_Volgende_1');
+  await clickNext(page);
 
   // SECTION 3 — Notifier details (person + company basics)
   await fillTextInTestIdInput(page, 'P785_NatuurlijkPersoon-Voornaam_1', requireEnv('NOTIFIER_FIRST_NAME'));
@@ -189,7 +189,7 @@ test('End-to-end notification flow', async ({ page }) => {
   await selectMatOptionByText(page, 'P785_NatuurlijkPersoon-Nationaliteit_1', 'Slovakia');
 
   // Next to Service recipient section
-  await clickNext(page, 'P785_Volgende_2');
+  await clickNext(page);
 
   // SECTION 4 — Service recipient: type, KVK lookup, VAT, address, contact
   // Type of service recipient -> Company
@@ -225,7 +225,7 @@ test('End-to-end notification flow', async ({ page }) => {
   await fillTextInTestIdInput(page, 'P785_CP_Emailadres_1', requireEnv('SERVICE_RECIPIENT_EMAIL'));
 
   // Next to Work location section
-  await clickNext(page, 'P785_Volgende_3');
+  await clickNext(page);
 
   // SECTION 5 — Address/place where work will be performed
   // Does the workplace in NL have a known address? -> Yes
@@ -252,7 +252,7 @@ test('End-to-end notification flow', async ({ page }) => {
   await selectMatOptionByText(page, 'P903_Werknemer-A1VerklaringLandIsoUitgifte_1', 'Slovakia (EEA)');
 
   // Go to summary
-  await clickNext(page, 'P903_NaarSamenvatting_1');
+  await clickNext(page, 'Go to summary');
 
   // SECTION 6 — Summary: confirm declaration and submit
   await page.getByTestId('P437_Melder-Akkoordverklaring_1').locator('input[type="checkbox"]').check();
