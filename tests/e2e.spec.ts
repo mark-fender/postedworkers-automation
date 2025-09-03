@@ -41,6 +41,13 @@ async function clickByTestId(page: Page, testId: string) {
   await el.click();
 }
 
+async function selectMatOptionByText(page: Page, testId: string, optionText: string) {
+  await clickByTestId(page, testId);
+  const option = page.getByRole('option', { name: optionText, exact: true });
+  await expect(option).toBeVisible();
+  await option.click();
+}
+
 async function setRadioByTestId(page: Page, groupTestId: string, valueTrueFalse: 'true'|'false') {
   const container = page.getByTestId(groupTestId);
   const radio = container.locator(`input[type="radio"][value="${valueTrueFalse}"]`);
@@ -119,20 +126,16 @@ test('End-to-end notification flow', async ({ page }) => {
   await setRadioByTestId(page, 'P785_CP_JaarMeldingJaNee_1', 'false');
 
   // Sector -> F. Construction
-  await clickByTestId(page, 'P785_CP_Sector_1');
-  await page.locator('mat-option .mdc-list-item__primary-text', { hasText: 'F. Construction' }).click();
+  await selectMatOptionByText(page, 'P785_CP_Sector_1', 'F. Construction');
 
   // Subsector -> 41 Construction of buildings and development of building projects
-  await clickByTestId(page, 'P785_CP_Subsector_1');
-  await page.locator('mat-option .mdc-list-item__primary-text', { hasText: '41 Construction of buildings and development of building projects' }).click();
+  await selectMatOptionByText(page, 'P785_CP_Subsector_1', '41 Construction of buildings and development of building projects');
 
   // Branch code -> 4120 Construction of residential and non-residential buildings
-  await clickByTestId(page, 'P785_CP_Branchecode_1');
-  await page.locator('mat-option .mdc-list-item__primary-text', { hasText: '4120 Construction of residential and non-residential buildings' }).click();
+  await selectMatOptionByText(page, 'P785_CP_Branchecode_1', '4120 Construction of residential and non-residential buildings');
 
   // Country of establishment -> Slovakia
-  await clickByTestId(page, 'P785_CP_LandVanVestiging_1');
-  await page.locator('mat-option .mdc-list-item__primary-text', { hasText: 'Slovakia' }).click();
+  await selectMatOptionByText(page, 'P785_CP_LandVanVestiging_1', 'Slovakia');
 
   // Posting dates from JSON (convert to DD-MM-YYYY)
   const start = formatDateToDutchLocale(workLocation.start_date);
@@ -154,8 +157,7 @@ test('End-to-end notification flow', async ({ page }) => {
   await fillTextInTestIdInput(page, 'P785_NatuurlijkPersoon-Emailadres_1', requireEnv('NOTIFIER_EMAIL'));
 
   // Country of establishment -> Slovakia
-  await clickByTestId(page, 'P785_Organisatie-LandVanVestiging_1');
-  await page.locator('mat-option .mdc-list-item__primary-text', { hasText: 'Slovakia' }).click();
+  await selectMatOptionByText(page, 'P785_Organisatie-LandVanVestiging_1', 'Slovakia');
 
   // Dutch Chamber of Commerce? -> No
   await setRadioByTestId(page, 'P785_Organisatie-InKamerVanKoophandelJaNee_1', 'false');
@@ -186,20 +188,17 @@ test('End-to-end notification flow', async ({ page }) => {
   await fillTextInTestIdInput(page, 'P785_NatuurlijkPersoon-Geboortedatum_1', requireEnv('NOTIFIER_DATE_OF_BIRTH'));
 
   // Nationality -> Slovakia
-  await clickByTestId(page, 'P785_NatuurlijkPersoon-Nationaliteit_1');
-  await page.locator('mat-option .mdc-list-item__primary-text', { hasText: 'Slovakia' }).click();
+  await selectMatOptionByText(page, 'P785_NatuurlijkPersoon-Nationaliteit_1', 'Slovakia');
 
   // Next to Service recipient section
   await clickNext(page, 'P785_Volgende_2');
 
   // SECTION 4 — Service recipient: type, KVK lookup, VAT, address, contact
   // Type of service recipient -> Company
-  await clickByTestId(page, 'P785_Dienstontvanger-Soort_1');
-  await page.locator('mat-option .mdc-list-item__primary-text', { hasText: 'Company' }).click();
+  await selectMatOptionByText(page, 'P785_Dienstontvanger-Soort_1', 'Company');
 
   // Country of establishment -> Netherlands (EEA)
-  await clickByTestId(page, 'P785_Dienstontvanger-LandVanVestiging_1');
-  await page.locator('mat-option .mdc-list-item__primary-text', { hasText: 'Netherlands (EEA)' }).click();
+  await selectMatOptionByText(page, 'P785_Dienstontvanger-LandVanVestiging_1', 'Netherlands (EEA)');
 
   // KVK + Branch number → search
   await fillTextInTestIdInput(page, 'P785_Dienstontvanger-KvKNummer_1', requireEnv('SERVICE_RECIPIENT_KVK_NUMBER'));
@@ -252,8 +251,7 @@ test('End-to-end notification flow', async ({ page }) => {
 
   // A1 coverage section
   await setRadioByTestId(page, 'P903_Werknemer-A1VerklaringAanwezig_1', 'true');
-  await clickByTestId(page, 'P903_Werknemer-A1VerklaringLandIsoUitgifte_1');
-  await page.locator('mat-option .mdc-list-item__primary-text', { hasText: 'Slovakia (EEA)' }).click();
+  await selectMatOptionByText(page, 'P903_Werknemer-A1VerklaringLandIsoUitgifte_1', 'Slovakia (EEA)');
 
   // Go to summary
   await clickNext(page, 'P903_NaarSamenvatting_1');
