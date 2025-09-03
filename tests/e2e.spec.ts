@@ -2,7 +2,7 @@ import 'dotenv/config';
 
 // playwright.config note: ensure "use": { "baseURL": "" } if you prefer, but we use absolute URL here.
 
-import { test, expect, Page } from '@playwright/test';
+import { test, expect, Page, Locator } from '@playwright/test';
 import workLocation from '../work_location.json';
 
 // -------------------------------
@@ -88,19 +88,24 @@ async function setRadioByTestId(page: Page, groupTestId: string, valueTrueFalse:
   await radio.check();
 }
 
+async function setInputValue(input: Locator, value: string) {
+  await input.click({ timeout: 1000 });
+  await input.fill(value);
+  if ((await input.inputValue()) !== value) {
+    await input.fill('');
+    await input.pressSequentially(value);
+  }
+  await expect(input).toHaveValue(value);
+  // Dismiss any date picker overlays that might block subsequent fields
+  await input.press('Tab').catch(() => {});
+}
+
 async function fillTextByLabel(page: Page, labelText: string, value: string) {
   // Try straightforward accessible lookup first
   try {
     const field = page.getByLabel(labelText, { exact: true });
     await expect(field).toBeVisible({ timeout: 1000 });
-    await field.click({ timeout: 1000 });
-    await field.fill(value);
-    if ((await field.inputValue()) !== value) {
-      // If the framework blocks direct fill (masked inputs), type instead
-      await field.fill('');
-      await field.pressSequentially(value);
-    }
-    await expect(field).toHaveValue(value);
+    await setInputValue(field, value);
     return;
   } catch {}
 
@@ -113,13 +118,7 @@ async function fillTextByLabel(page: Page, labelText: string, value: string) {
     : label.locator('xpath=..').locator('input, textarea').first();
 
   await expect(input).toBeVisible({ timeout: 1000 });
-  await input.click({ timeout: 1000 });
-  await input.fill(value);
-  if ((await input.inputValue()) !== value) {
-    await input.fill('');
-    await input.pressSequentially(value);
-  }
-  await expect(input).toHaveValue(value);
+  await setInputValue(input, value);
 }
 
 async function selectMatOptionByLabel(page: Page, labelText: string, optionText: string) {
@@ -181,7 +180,7 @@ async function setRadioByLabel(page: Page, groupLabel: string, optionText: strin
   await fallback.check();
 }
 
-async function clickNext(page: Page, buttonText: string = 'Next') {
+async function clickProceed(page: Page, buttonText: string = 'Next') {
   await page.getByRole('button', { name: buttonText }).click();
   await waitForStableLoad(page);
 }
@@ -271,7 +270,7 @@ test('End-to-end notification flow', async ({ page }) => {
   await fillTextByLabel(page, 'Scheduled end date of the posting', end);
 
   // Next to Notifier details
-  await clickNext(page);
+  await clickProceed(page);
 
   // SECTION 3 — Notifier details (person + company basics)
   await fillTextInTestIdInput(page, 'P785_NatuurlijkPersoon-Voornaam_1', requireEnv('NOTIFIER_FIRST_NAME'));
@@ -317,7 +316,7 @@ test('End-to-end notification flow', async ({ page }) => {
   await selectMatOptionByText(page, 'P785_NatuurlijkPersoon-Nationaliteit_1', 'Slovakia');
 
   // Next to Service recipient section
-  await clickNext(page);
+  await clickProceed(page);
 
   // SECTION 4 — Service recipient: type, KVK lookup, VAT, address, contact
   // Type of service recipient -> Company
@@ -353,7 +352,7 @@ test('End-to-end notification flow', async ({ page }) => {
   await fillTextInTestIdInput(page, 'P785_CP_Emailadres_1', requireEnv('SERVICE_RECIPIENT_EMAIL'));
 
   // Next to Work location section
-  await clickNext(page);
+  await clickProceed(page);
 
   // SECTION 5 — Address/place where work will be performed
   // Does the workplace in NL have a known address? -> Yes
@@ -380,7 +379,7 @@ test('End-to-end notification flow', async ({ page }) => {
   await selectMatOptionByText(page, 'P903_Werknemer-A1VerklaringLandIsoUitgifte_1', 'Slovakia (EEA)');
 
   // Go to summary
-  await clickNext(page, 'Go to summary');
+  await clickProceed(page, 'Go to summary');
 
   // SECTION 6 — Summary: confirm declaration and submit
   await page.getByTestId('P437_Melder-Akkoordverklaring_1').locator('input[type="checkbox"]').check();
