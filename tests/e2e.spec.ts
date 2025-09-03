@@ -31,8 +31,7 @@ async function waitAfterOpenForm(page: Page) {
 async function fillTextInTestIdInput(page: Page, testId: string, value: string) {
   const field = page.getByTestId(testId).locator('input, textarea');
   await expect(field).toBeVisible();
-  await field.fill('');
-  await field.type(value);
+  await field.fill(value);
 }
 
 async function clickByTestId(page: Page, testId: string) {
