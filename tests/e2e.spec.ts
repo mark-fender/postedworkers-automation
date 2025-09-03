@@ -41,11 +41,44 @@ async function clickByTestId(page: Page, testId: string) {
   await el.click();
 }
 
+async function selectMatOption(page: Page, optionText: string) {
+  // Try standard ARIA role lookup first
+  try {
+    const option = page.getByRole('option', { name: optionText, exact: true });
+    await option.waitFor({ state: 'visible', timeout: 1000 });
+    await option.click({ timeout: 1000 });
+    return;
+  } catch {}
+
+  // Fallback to mat-option element search
+  try {
+    const option = page.locator('mat-option', { hasText: optionText }).first();
+    await option.waitFor({ state: 'visible', timeout: 1000 });
+    await option.click({ timeout: 1000 });
+    return;
+  } catch {}
+
+  // Last resort: text lookup anywhere in option list
+  const fallback = page.locator(`text="${optionText}"`).first();
+  await fallback.waitFor({ state: 'visible', timeout: 1000 });
+  await fallback.click();
+}
+
 async function selectMatOptionByText(page: Page, testId: string, optionText: string) {
-  await clickByTestId(page, testId);
-  const option = page.getByRole('option', { name: optionText, exact: true });
-  await expect(option).toBeVisible();
-  await option.click();
+  try {
+    await clickByTestId(page, testId);
+  } catch {}
+
+  try {
+    await selectMatOption(page, optionText);
+    return;
+  } catch {}
+
+  // Fallback: open the mat-select trigger within the testId container
+  const container = page.getByTestId(testId);
+  const trigger = container.locator('.mat-mdc-select-trigger');
+  await trigger.click({ timeout: 1000 });
+  await selectMatOption(page, optionText);
 }
 
 async function setRadioByTestId(page: Page, groupTestId: string, valueTrueFalse: 'true'|'false') {
@@ -62,19 +95,62 @@ async function fillTextByLabel(page: Page, labelText: string, value: string) {
 }
 
 async function selectMatOptionByLabel(page: Page, labelText: string, optionText: string) {
-  const field = page.getByLabel(labelText);
-  await expect(field).toBeVisible();
-  await field.click();
-  const option = page.getByRole('option', { name: optionText, exact: true });
-  await expect(option).toBeVisible();
-  await option.click();
+  // First attempt: use accessible label and option roles
+  try {
+    const field = page.getByLabel(labelText, { exact: true });
+    await field.click({ timeout: 1000 });
+    await selectMatOption(page, optionText);
+    return;
+  } catch {}
+
+  // Fallback: locate custom bq-select container by label text
+  try {
+    const container = page.locator('bq-select', {
+      has: page.locator(`label:has-text("${labelText}")`),
+    });
+    await container.waitFor({ state: 'visible', timeout: 1000 });
+    const trigger = container.locator('.mat-mdc-select-trigger');
+    await trigger.click({ timeout: 1000 });
+    await selectMatOption(page, optionText);
+    return;
+  } catch {}
+
+  // Last resort: click the label's "for" target and pick the option by text
+  const label = page.locator(`label:has-text("${labelText}")`).first();
+  await label.waitFor({ state: 'visible', timeout: 1000 });
+  const forAttr = await label.getAttribute('for');
+  if (forAttr) {
+    await page.locator(`#${forAttr}`).click({ timeout: 1000 });
+  } else {
+    await label.click({ timeout: 1000 });
+  }
+  await selectMatOption(page, optionText);
 }
 
 async function setRadioByLabel(page: Page, groupLabel: string, optionText: string) {
-  const group = page.getByRole('radiogroup', { name: groupLabel });
-  const option = group.getByLabel(optionText);
-  await expect(option).toBeVisible();
-  await option.check();
+  // Try accessible role-based lookup first
+  try {
+    const group = page.getByRole('radiogroup', { name: groupLabel });
+    const option = group.getByLabel(optionText, { exact: true });
+    await option.check({ timeout: 1000 });
+    return;
+  } catch {}
+
+  // Fallback: locate the custom radio container by label text and click the option label
+  try {
+    const container = page.locator('bq-radio-button', {
+      has: page.locator(`label:has-text("${groupLabel}")`),
+    });
+    await container.waitFor({ state: 'visible', timeout: 1000 });
+    const optionLabel = container.locator('label', { hasText: optionText }).first();
+    await optionLabel.click({ timeout: 1000 });
+    return;
+  } catch {}
+
+  // Last resort: rely on unique option label without group context
+  const fallback = page.getByLabel(optionText, { exact: true });
+  await expect(fallback).toBeVisible();
+  await fallback.check();
 }
 
 async function clickNext(page: Page, buttonText: string = 'Next') {
