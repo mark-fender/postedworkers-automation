@@ -9,7 +9,6 @@ import workLocation from '../work_location.json';
 // Helpers
 // -------------------------------
 function requireEnv(name: string): string {
-  console.log(process.env[name])
   const v = process.env[name];
   if (!v || !v.trim()) {
     throw new Error(`Missing required env var: ${name}`);
