@@ -24,7 +24,9 @@ async function waitForStableLoad(page: Page) {
 
 async function waitAfterOpenForm(page: Page) {
   await waitForStableLoad(page);
-  await expect(page.getByTestId('P785-C3-C1')).toBeVisible({ timeout: 15000 });
+  await expect(
+    page.getByRole('heading', { name: /Service provider/i })
+  ).toBeVisible({ timeout: 15000 });
 }
 
 async function fillTextInTestIdInput(page: Page, testId: string, value: string) {
