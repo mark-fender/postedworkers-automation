@@ -148,6 +148,44 @@ async function setRadioByLabel(
   await fallback.check();
 }
 
+async function setCheckboxByLabel(
+  page: Page,
+  labelText: string | RegExp
+) {
+  // Try accessible role or label lookup first
+  try {
+    const checkbox = page.getByRole('checkbox', { name: labelText });
+    await checkbox.check({ timeout: 1000 });
+    return;
+  } catch {}
+
+  try {
+    const checkbox = page.getByLabel(labelText, { exact: true });
+    await checkbox.check({ timeout: 1000 });
+    return;
+  } catch {}
+
+  // Fallback: locate custom checkbox container by label text
+  try {
+    const container = page.locator('bq-checkbox', {
+      has: page.locator('label', { hasText: labelText }),
+    });
+    await container.waitFor({ state: 'visible', timeout: 1000 });
+    const input = container.locator('input[type="checkbox"]').first();
+    await input.check({ timeout: 1000 });
+    return;
+  } catch {}
+
+  // Last resort: resolve via label "for" attribute
+  const label = page.locator('label', { hasText: labelText }).first();
+  await label.waitFor({ state: 'visible', timeout: 1000 });
+  const forAttr = await label.getAttribute('for');
+  const input = forAttr
+    ? page.locator(`#${forAttr}`)
+    : label.locator('input[type="checkbox"]').first();
+  await input.check({ timeout: 1000 });
+}
+
 async function clickProceed(page: Page, buttonText: string = 'Next') {
   await page.getByRole('button', { name: buttonText }).click();
   await waitForStableLoad(page);
@@ -414,8 +452,11 @@ test('End-to-end notification flow', async ({ page }) => {
   await clickProceed(page, 'Summary');
 
   // SECTION 7 — Summary: confirm declaration and submit
-  await page.getByRole('checkbox', { name: /I declare/i }).check();
-  // await page.getByRole('button', { name: 'Submit' }).click();
+  await setCheckboxByLabel(
+    page,
+    'With this I declare all questions have been answered truthfully.'
+  );
+  // await page.getByRole('button', { name: 'Submit notification' }).click();
 
   // Logout
   await waitForStableLoad(page);
