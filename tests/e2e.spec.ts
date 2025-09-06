@@ -29,18 +29,6 @@ async function waitAfterOpenForm(page: Page) {
   ).toBeVisible({ timeout: 15000 });
 }
 
-async function fillTextInTestIdInput(page: Page, testId: string, value: string) {
-  const field = page.getByTestId(testId).locator('input, textarea');
-  await expect(field).toBeVisible();
-  await field.fill(value);
-}
-
-async function clickByTestId(page: Page, testId: string) {
-  const element = page.getByTestId(testId);
-  await expect(element).toBeVisible();
-  await element.click();
-}
-
 async function selectMatOption(page: Page, optionText: string) {
   // Try standard ARIA role lookup first
   try {
@@ -62,30 +50,6 @@ async function selectMatOption(page: Page, optionText: string) {
   const fallback = page.locator(`text="${optionText}"`).first();
   await fallback.waitFor({ state: 'visible', timeout: 1000 });
   await fallback.click();
-}
-
-async function selectMatOptionByText(page: Page, testId: string, optionText: string) {
-  try {
-    await clickByTestId(page, testId);
-  } catch {}
-
-  try {
-    await selectMatOption(page, optionText);
-    return;
-  } catch {}
-
-  // Fallback: open the mat-select trigger within the testId container
-  const container = page.getByTestId(testId);
-  const trigger = container.locator('.mat-mdc-select-trigger');
-  await trigger.click({ timeout: 1000 });
-  await selectMatOption(page, optionText);
-}
-
-async function setRadioByTestId(page: Page, groupTestId: string, valueTrueFalse: 'true'|'false') {
-  const container = page.getByTestId(groupTestId);
-  const radio = container.locator(`input[type="radio"][value="${valueTrueFalse}"]`);
-  await expect(radio).toBeVisible();
-  await radio.check();
 }
 
 async function setInputValue(input: Locator, value: string) {
@@ -395,10 +359,14 @@ test('End-to-end notification flow', async ({ page }) => {
 
   // SECTION 6 — Address/place where work will be performed
   // Does the workplace in NL have a known address? -> Yes
-  await setRadioByTestId(page, 'P903_Werklocatie-BekendAdresJaNee_1', 'true');
+  await setRadioByLabel(
+    page,
+    'Does the workplace in the Netherlands have a known address?',
+    'Yes'
+  );
 
   // Provide manually -> No
-  await setRadioByTestId(page, 'P903_Adres-PostcodeCheckOverschrijven_1', 'false');
+  await setRadioByLabel(page, 'Provide manually', 'No');
 
   // Derive postcode from PDOK using JSON street/city/houseNumber, then fill
   const workLocationStreet = workLocation.street;
@@ -411,23 +379,43 @@ test('End-to-end notification flow', async ({ page }) => {
     workLocationCity
   );
 
-  await fillTextInTestIdInput(page, 'P903_Adres-PostcodeNederland_1', derivedPostcode);
-  await fillTextInTestIdInput(page, 'P903_Adres-Huisnummer_1', workLocationHouseNumber);
+  await fillTextByLabel(
+    page,
+    'Postal code in the Netherlands',
+    derivedPostcode
+  );
+  await fillTextByLabel(page, 'House number', workLocationHouseNumber);
 
   // Work-location contact: phone + email from service recipient (env)
-  await fillTextInTestIdInput(page, 'P903_Werklocatie-ContactTelefoonnummer_1', requireEnv('SERVICE_RECIPIENT_PHONE'));
-  await fillTextInTestIdInput(page, 'P903_Werklocatie-ContactEmailadres_1', requireEnv('SERVICE_RECIPIENT_EMAIL'));
+  await fillTextByLabel(
+    page,
+    'Phone number',
+    requireEnv('SERVICE_RECIPIENT_PHONE')
+  );
+  await fillTextByLabel(
+    page,
+    'E-mail address',
+    requireEnv('SERVICE_RECIPIENT_EMAIL')
+  );
 
   // A1 coverage section
-  await setRadioByTestId(page, 'P903_Werknemer-A1VerklaringAanwezig_1', 'true');
-  await selectMatOptionByText(page, 'P903_Werknemer-A1VerklaringLandIsoUitgifte_1', 'Slovakia (EEA)');
+  await setRadioByLabel(
+    page,
+    'Do you have an A1-certificate of coverage?',
+    'Yes'
+  );
+  await selectMatOptionByLabel(
+    page,
+    'Country of issue',
+    'Slovakia (EEA)'
+  );
 
   // Go to summary
-  await clickProceed(page, 'Go to summary');
+  await clickProceed(page, 'Summary');
 
   // SECTION 7 — Summary: confirm declaration and submit
-  await page.getByTestId('P437_Melder-Akkoordverklaring_1').locator('input[type="checkbox"]').check();
-  // await clickByTestId(page, 'P437_Indienen_1');
+  await page.getByRole('checkbox', { name: /I declare/i }).check();
+  // await page.getByRole('button', { name: 'Submit' }).click();
 
   // Logout
   await waitForStableLoad(page);
