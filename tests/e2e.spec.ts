@@ -154,7 +154,11 @@ async function selectMatOptionByLabel(page: Page, labelText: string, optionText:
   await selectMatOption(page, optionText);
 }
 
-async function setRadioByLabel(page: Page, groupLabel: string, optionText: string) {
+async function setRadioByLabel(
+  page: Page,
+  groupLabel: string | RegExp,
+  optionText: string
+) {
   // Try accessible role-based lookup first
   try {
     const group = page.getByRole('radiogroup', { name: groupLabel });
@@ -166,7 +170,7 @@ async function setRadioByLabel(page: Page, groupLabel: string, optionText: strin
   // Fallback: locate the custom radio container by label text and click the option label
   try {
     const container = page.locator('bq-radio-button', {
-      has: page.locator(`label:has-text("${groupLabel}")`),
+      has: page.locator('label', { hasText: groupLabel }),
     });
     await container.waitFor({ state: 'visible', timeout: 1000 });
     const optionLabel = container.locator('label', { hasText: optionText }).first();
@@ -326,36 +330,65 @@ test('End-to-end notification flow', async ({ page }) => {
 
   // SECTION 5 — Service recipient: type, KVK lookup, VAT, address, contact
   // Type of service recipient -> Company
-  await selectMatOptionByText(page, 'P785_Dienstontvanger-Soort_1', 'Company');
+  await setRadioByLabel(page, 'Type of service recipient', 'Company');
 
   // Country of establishment -> Netherlands (EEA)
-  await selectMatOptionByText(page, 'P785_Dienstontvanger-LandVanVestiging_1', 'Netherlands (EEA)');
+  await selectMatOptionByLabel(page, 'Country of establishment', 'Netherlands (EEA)');
 
   // KVK + Branch number → search
-  await fillTextInTestIdInput(page, 'P785_Dienstontvanger-KvKNummer_1', requireEnv('SERVICE_RECIPIENT_KVK_NUMBER'));
-  await fillTextInTestIdInput(page, 'P785_Dienstontvanger-Vestigingsnummer_1', requireEnv('SERVICE_RECIPIENT_BRANCH_NUMBER'));
-  await clickByTestId(page, 'P785_Dienstontvanger-ZoekInHandelsregister_1');
+  await fillTextByLabel(
+    page,
+    'Dutch Chamber of Commerce registration number (KvK-nummer)',
+    requireEnv('SERVICE_RECIPIENT_KVK_NUMBER')
+  );
+  await fillTextByLabel(
+    page,
+    'Branch number',
+    requireEnv('SERVICE_RECIPIENT_BRANCH_NUMBER')
+  );
+  await page.getByRole('button', { name: /search/i }).click();
   await waitForStableLoad(page);
 
   // Confirm result: click the "Select" action
   await page.getByText('Select', { exact: true }).click();
   await waitForStableLoad(page);
 
-  // VAT number
-  await fillTextInTestIdInput(page, 'P785_Dienstontvanger-VatNummer_1', requireEnv('SERVICE_RECIPIENT_VAT_NUMBER'));
+  // VAT identification number
+  await setRadioByLabel(
+    page,
+    'Does the company have a VAT identification number?',
+    'Yes'
+  );
+  await fillTextByLabel(
+    page,
+    'VAT identification number',
+    requireEnv('SERVICE_RECIPIENT_VAT_NUMBER')
+  );
 
   // Address selection strategy: Provide manually -> No
-  await setRadioByTestId(page, 'P785_Adres-PostcodeCheckOverschrijven_1', 'false');
+  await setRadioByLabel(page, 'Provide manually', 'No');
 
   // Fill postcode + house number from env
-  await fillTextInTestIdInput(page, 'P785_Adres-PostcodeNederland_1', requireEnv('SERVICE_RECIPIENT_POSTCODE'));
-  await fillTextInTestIdInput(page, 'P785_Adres-Huisnummer_1', requireEnv('SERVICE_RECIPIENT_HOUSE_NUMBER'));
+  await fillTextByLabel(
+    page,
+    'Postal code in the Netherlands',
+    requireEnv('SERVICE_RECIPIENT_POSTCODE')
+  );
+  await fillTextByLabel(page, 'House number', requireEnv('SERVICE_RECIPIENT_HOUSE_NUMBER'));
 
   // Contact info
-  await fillTextInTestIdInput(page, 'P785_CP_Voornaam_1', requireEnv('SERVICE_RECIPIENT_CONTACT_FIRST_NAME'));
-  await fillTextInTestIdInput(page, 'P785_CP_Achternaam_1', requireEnv('SERVICE_RECIPIENT_CONTACT_LAST_NAME'));
-  await fillTextInTestIdInput(page, 'P785_CP_Telefoonnummer_1', requireEnv('SERVICE_RECIPIENT_PHONE'));
-  await fillTextInTestIdInput(page, 'P785_CP_Emailadres_1', requireEnv('SERVICE_RECIPIENT_EMAIL'));
+  await fillTextByLabel(
+    page,
+    'First name',
+    requireEnv('SERVICE_RECIPIENT_CONTACT_FIRST_NAME')
+  );
+  await fillTextByLabel(
+    page,
+    'Surname',
+    requireEnv('SERVICE_RECIPIENT_CONTACT_LAST_NAME')
+  );
+  await fillTextByLabel(page, 'Phone number', requireEnv('SERVICE_RECIPIENT_PHONE'));
+  await fillTextByLabel(page, 'E-mail address', requireEnv('SERVICE_RECIPIENT_EMAIL'));
 
   // Next to Work location section
   await clickProceed(page);
