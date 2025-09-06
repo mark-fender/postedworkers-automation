@@ -350,7 +350,7 @@ test('End-to-end notification flow', async ({ page }) => {
   await waitForStableLoad(page);
 
   // Confirm result: click the "Select" action
-  await page.getByRole('button', { name: 'Select' }).click();
+  await page.getByText('Select', { exact: true }).click();
   await waitForStableLoad(page);
 
   // VAT identification number
