@@ -303,23 +303,23 @@ test('End-to-end notification flow', async ({ page }) => {
   await setRadioByLabel(page, 'Foreign Chamber of Commerce?', 'Yes');
 
   // Chamber number from env
-  await fillTextByLabel(page, 'Chamber of Commerce number', requireEnv('NOTIFIER_CHAMBER_NUMBER'));
+  await fillTextByLabel(page, 'Chamber of Commerce registration number', requireEnv('NOTIFIER_CHAMBER_NUMBER'));
 
   // Company name = first + last
   const notifierCompany = `${requireEnv('NOTIFIER_FIRST_NAME')} ${requireEnv('NOTIFIER_LAST_NAME')}`;
   await fillTextByLabel(page, 'Company name', notifierCompany);
 
   // VAT identification: “The company does not have a VAT identification number...”
-  await setRadioByLabel(page, 'The company does not have a VAT identification number', 'Yes');
+  await setRadioByLabel(page, 'Does the company have a VAT identification number?', 'The company does not have a VAT identification number');
 
   // Notifier address (fill full address)
   await fillTextByLabel(page, 'Street', requireEnv('NOTIFIER_STREET'));
   await fillTextByLabel(page, 'House number', requireEnv('NOTIFIER_HOUSE_NUMBER'));
   await fillTextByLabel(page, 'City', requireEnv('NOTIFIER_CITY'));
-  await fillTextByLabel(page, 'Postcode', requireEnv('NOTIFIER_POSTCODE'));
+  await fillTextByLabel(page, 'Postal code', requireEnv('NOTIFIER_POSTCODE'));
 
   // Reporter and self-employed are the same person -> Yes
-  await setRadioByLabel(page, 'Reporter and self-employed are the same person', 'Yes');
+  await setRadioByLabel(page, 'The reporter and the self-employed person are the same person', 'Yes');
 
   // Date of birth
   await fillTextByLabel(page, 'Date of birth', requireEnv('NOTIFIER_DATE_OF_BIRTH'));
@@ -348,7 +348,8 @@ test('End-to-end notification flow', async ({ page }) => {
     'Branch number',
     requireEnv('SERVICE_RECIPIENT_BRANCH_NUMBER')
   );
-  await page.getByRole('button', { name: /search/i }).click();
+  
+  await page.getByRole('button', { name: 'Search in the Dutch trade register' }).click();
   await waitForStableLoad(page);
 
   // Confirm result: click the "Select" action
