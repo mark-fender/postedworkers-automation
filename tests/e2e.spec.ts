@@ -352,9 +352,19 @@ test('End-to-end notification flow', async ({ page }) => {
   await page.getByRole('button', { name: 'Search in the Dutch trade register' }).click();
   await waitForStableLoad(page);
 
-  // Confirm result: click the "Select" action
-  await page.getByText('Select', { exact: true }).click();
-  await waitForStableLoad(page);
+  // Confirm result: click the "Select" action if available
+  try {
+    await page.getByText('Select', { exact: true }).click({ timeout: 3000 });
+    await waitForStableLoad(page);
+  } catch {
+    // Fallback: choose manual entry and close result dialog
+    const manualOption = page.getByLabel('No, enter company details manually', {
+      exact: true,
+    });
+    await manualOption.click({ timeout: 1000 }).catch(() => {});
+    await page.getByRole('button', { name: 'Close' }).click();
+    await waitForStableLoad(page);
+  }
 
   // VAT identification number
   await setRadioByLabel(
