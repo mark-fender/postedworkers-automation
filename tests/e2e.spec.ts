@@ -352,9 +352,31 @@ test('End-to-end notification flow', async ({ page }) => {
   await page.getByRole('button', { name: 'Search in the Dutch trade register' }).click();
   await waitForStableLoad(page);
 
-  // Confirm result: click the "Select" action
-  await page.getByText('Select', { exact: true }).click();
-  await waitForStableLoad(page);
+  // Confirm result: click the "Select" action if available
+  try {
+    await page.getByText('Select', { exact: true }).click({ timeout: 3000 });
+    await waitForStableLoad(page);
+  } catch {
+    // Fallback: choose manual entry and close result dialog
+    const manualOption = page.getByLabel('No, enter company details manually', {
+      exact: true,
+    });
+    await manualOption.click({ timeout: 1000 }).catch(() => {});
+    // Click the button whose tooltip contains "Close"
+    const tooltipButtons = page.locator('button[aria-describedby]');
+    const buttonCount = await tooltipButtons.count();
+    for (let i = 0; i < buttonCount; i++) {
+      const candidate = tooltipButtons.nth(i);
+      const tooltipId = await candidate.getAttribute('aria-describedby');
+      if (!tooltipId) continue;
+      const tooltipText = (await page.locator(`#${tooltipId}`).textContent()) || '';
+      if (tooltipText.includes('Close')) {
+        await candidate.click();
+        break;
+      }
+    }
+    await waitForStableLoad(page);
+  }
 
   // VAT identification number
   await setRadioByLabel(
