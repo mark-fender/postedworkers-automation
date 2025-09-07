@@ -123,29 +123,28 @@ async function setRadioByLabel(
   groupLabel: string | RegExp,
   optionText: string
 ) {
-  // Try accessible role-based lookup first
+  // Scope search to the radio question container identified by its label
+  const container = page
+    .locator('bq-radio-button', {
+      has: page.locator('label', { hasText: groupLabel }),
+    })
+    .first();
+
   try {
+    await container.waitFor({ state: 'visible', timeout: 1000 });
+  } catch {
+    // If no custom container is found, fall back to role-based lookup
     const group = page.getByRole('radiogroup', { name: groupLabel });
-    const option = group.getByLabel(optionText, { exact: true });
+    const option = group.getByRole('radio', { name: optionText, exact: true });
     await option.check({ timeout: 1000 });
     return;
-  } catch {}
+  }
 
-  // Fallback: locate the custom radio container by label text and click the option label
-  try {
-    const container = page.locator('bq-radio-button', {
-      has: page.locator('label', { hasText: groupLabel }),
-    });
-    await container.waitFor({ state: 'visible', timeout: 1000 });
-    const optionLabel = container.locator('label', { hasText: optionText }).first();
-    await optionLabel.click({ timeout: 1000 });
-    return;
-  } catch {}
-
-  // Last resort: rely on unique option label without group context
-  const fallback = page.getByLabel(optionText, { exact: true });
-  await expect(fallback).toBeVisible();
-  await fallback.check();
+  const optionLabel = container
+    .locator('label.radio-label', { hasText: optionText, exact: true })
+    .first();
+  await expect(optionLabel).toBeVisible({ timeout: 1000 });
+  await optionLabel.click({ timeout: 1000 });
 }
 
 async function setCheckboxByLabel(
@@ -185,6 +184,7 @@ async function setCheckboxByLabel(
     : label.locator('input[type="checkbox"]').first();
   await input.check({ timeout: 1000 });
 }
+
 
 async function clickProceed(page: Page, buttonText: string = 'Next') {
   await page.getByRole('button', { name: buttonText }).click();
