@@ -118,6 +118,10 @@ async function selectMatOptionByLabel(page: Page, labelText: string, optionText:
   await selectMatOption(page, optionText);
 }
 
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 async function setRadioByLabel(
   page: Page,
   groupLabel: string | RegExp,
@@ -141,7 +145,8 @@ async function setRadioByLabel(
   }
 
   const optionLabel = container
-    .locator('label.radio-label', { hasText: optionText, exact: true })
+    .locator('label.radio-label')
+    .filter({ hasText: new RegExp(`^${escapeRegExp(optionText)}$`) })
     .first();
   await expect(optionLabel).toBeVisible({ timeout: 1000 });
   await optionLabel.click({ timeout: 1000 });
