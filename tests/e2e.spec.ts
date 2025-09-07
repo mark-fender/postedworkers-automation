@@ -362,7 +362,19 @@ test('End-to-end notification flow', async ({ page }) => {
       exact: true,
     });
     await manualOption.click({ timeout: 1000 }).catch(() => {});
-    await page.getByRole('button', { name: 'Close' }).click();
+    // Click the button whose tooltip contains "Close"
+    const tooltipButtons = page.locator('button[aria-describedby]');
+    const buttonCount = await tooltipButtons.count();
+    for (let i = 0; i < buttonCount; i++) {
+      const candidate = tooltipButtons.nth(i);
+      const tooltipId = await candidate.getAttribute('aria-describedby');
+      if (!tooltipId) continue;
+      const tooltipText = (await page.locator(`#${tooltipId}`).textContent()) || '';
+      if (tooltipText.includes('Close')) {
+        await candidate.click();
+        break;
+      }
+    }
     await waitForStableLoad(page);
   }
 
