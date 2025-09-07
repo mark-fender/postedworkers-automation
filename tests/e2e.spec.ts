@@ -118,38 +118,34 @@ async function selectMatOptionByLabel(page: Page, labelText: string, optionText:
   await selectMatOption(page, optionText);
 }
 
-function escapeRegExp(text: string): string {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 async function setRadioByLabel(
   page: Page,
   groupLabel: string | RegExp,
   optionText: string
 ) {
-  // Scope search to the radio question container identified by its label
-  const container = page
-    .locator('bq-radio-button', {
-      has: page.locator('label', { hasText: groupLabel }),
-    })
-    .first();
-
+  // Try accessible role-based lookup first
   try {
-    await container.waitFor({ state: 'visible', timeout: 1000 });
-  } catch {
-    // If no custom container is found, fall back to role-based lookup
     const group = page.getByRole('radiogroup', { name: groupLabel });
-    const option = group.getByRole('radio', { name: optionText, exact: true });
+    const option = group.getByLabel(optionText, { exact: true });
     await option.check({ timeout: 1000 });
     return;
-  }
+  } catch {}
 
-  const optionLabel = container
-    .locator('label.radio-label')
-    .filter({ hasText: new RegExp(`^${escapeRegExp(optionText)}$`) })
-    .first();
-  await expect(optionLabel).toBeVisible({ timeout: 1000 });
-  await optionLabel.click({ timeout: 1000 });
+  // Fallback: locate the custom radio container by label text and click the option label
+  try {
+    const container = page.locator('bq-radio-button', {
+      has: page.locator('label', { hasText: groupLabel }),
+    });
+    await container.waitFor({ state: 'visible', timeout: 1000 });
+    const optionLabel = container.locator('label', { hasText: optionText }).first();
+    await optionLabel.click({ timeout: 1000 });
+    return;
+  } catch {}
+
+  // Last resort: rely on unique option label without group context
+  const fallback = page.getByLabel(optionText, { exact: true });
+  await expect(fallback).toBeVisible();
+  await fallback.check();
 }
 
 async function setCheckboxByLabel(
@@ -189,7 +185,6 @@ async function setCheckboxByLabel(
     : label.locator('input[type="checkbox"]').first();
   await input.check({ timeout: 1000 });
 }
-
 
 async function clickProceed(page: Page, buttonText: string = 'Next') {
   await page.getByRole('button', { name: buttonText }).click();
@@ -393,6 +388,12 @@ test('End-to-end notification flow', async ({ page }) => {
       'No, enter company details manually'
     );
     await waitForStableLoad(page);
+
+    await fillTextByLabel(
+    page,
+    'Dutch Chamber of Commerce registration number (KvK-nummer)',
+    requireEnv('SERVICE_RECIPIENT_KVK_NUMBER')
+    );
     await fillTextByLabel(
       page,
       'Company name',
@@ -408,7 +409,7 @@ test('End-to-end notification flow', async ({ page }) => {
   );
   await fillTextByLabel(
     page,
-    'VAT identification number',
+    'VAT identification number *',
     requireEnv('SERVICE_RECIPIENT_VAT_NUMBER')
   );
 
@@ -444,7 +445,7 @@ test('End-to-end notification flow', async ({ page }) => {
   // Does the workplace in NL have a known address? -> Yes
   await setRadioByLabel(
     page,
-    'Does the workplace in the Netherlands have a known address?',
+    'Does the workplace in the Netherlands have a known address? *',
     'Yes'
   );
 
