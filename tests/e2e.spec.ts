@@ -377,6 +377,10 @@ test('End-to-end notification flow', async ({ page }) => {
     }
     await waitForStableLoad(page);
 
+    // Reveal additional options before manual company entry
+    await page.getByText('More search options', { exact: true }).click();
+    await waitForStableLoad(page);
+
     // Ensure manual company entry is selected and provide company name
     await setRadioByLabel(
       page,
