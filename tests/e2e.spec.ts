@@ -376,6 +376,19 @@ test('End-to-end notification flow', async ({ page }) => {
       }
     }
     await waitForStableLoad(page);
+
+    // Ensure manual company entry is selected and provide company name
+    await setRadioByLabel(
+      page,
+      "Do you want to use the company's details from the Dutch trade register?",
+      'No, enter company details manually'
+    );
+    await waitForStableLoad(page);
+    await fillTextByLabel(
+      page,
+      'Company name',
+      requireEnv('SERVICE_RECIPIENT_COMPANY_NAME')
+    );
   }
 
   // VAT identification number
