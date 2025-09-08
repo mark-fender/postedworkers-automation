@@ -1,251 +1,24 @@
 import 'dotenv/config';
 
-// playwright.config note: ensure "use": { "baseURL": "" } if you prefer, but we use absolute URL here.
-
-import { test, expect, Page, Locator } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import workLocation from '../work_location.json';
+import { requireEnv } from '../utils/env';
+import { waitForStableLoad, waitAfterOpenForm } from '../utils/wait';
+import {
+  selectMatOptionByLabel,
+  setRadioByLabel,
+  setCheckboxByLabel,
+  fillTextByLabel,
+  clickProceed,
+} from '../utils/elements';
+import { formatDateToDutchLocale } from '../utils/date';
+import { pdokLookupPostalCode } from '../utils/pdok';
 
-// -------------------------------
-// Helpers
-// -------------------------------
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value || !value.trim()) {
-    throw new Error(`Missing required env var: ${name}`);
-  }
-  return value.trim();
-}
-
-async function waitForStableLoad(page: Page) {
-  await page.waitForLoadState('networkidle');
-  // Occasionally Angular/Mat reflows, add a tiny settle
-  await page.waitForTimeout(250);
-}
-
-async function waitAfterOpenForm(page: Page) {
-  await waitForStableLoad(page);
-  await expect(
-    page.getByRole('heading', { name: /Service provider/i })
-  ).toBeVisible({ timeout: 20000 });
-}
-
-async function selectMatOption(page: Page, optionText: string) {
-  // Try standard ARIA role lookup first
-  try {
-    const option = page.getByRole('option', { name: optionText, exact: true });
-    await option.waitFor({ state: 'visible', timeout: 1000 });
-    await option.click({ timeout: 1000 });
-    return;
-  } catch {}
-
-  // Fallback to mat-option element search
-  try {
-    const option = page.locator('mat-option', { hasText: optionText }).first();
-    await option.waitFor({ state: 'visible', timeout: 1000 });
-    await option.click({ timeout: 1000 });
-    return;
-  } catch {}
-
-  // Last resort: text lookup anywhere in option list
-  const fallback = page.locator(`text="${optionText}"`).first();
-  await fallback.waitFor({ state: 'visible', timeout: 1000 });
-  await fallback.click();
-}
-
-async function setInputValue(input: Locator, value: string) {
-  await input.click({ timeout: 1000 });
-  await input.fill(value);
-  if ((await input.inputValue()) !== value) {
-    await input.fill('');
-    await input.pressSequentially(value);
-  }
-  await expect(input).toHaveValue(value);
-  // Dismiss any date picker overlays that might block subsequent fields
-  await input.press('Tab').catch(() => {});
-}
-
-async function fillTextByLabel(page: Page, labelText: string, value: string) {
-  // Try straightforward accessible lookup first
-  try {
-    const field = page.getByLabel(labelText, { exact: true });
-    await expect(field).toBeVisible({ timeout: 1000 });
-    await setInputValue(field, value);
-    return;
-  } catch {}
-
-  // Fallback: locate label manually and resolve its target input
-  const label = page.locator(`label:has-text("${labelText}")`).first();
-  await label.waitFor({ state: 'visible', timeout: 1000 });
-  const forAttr = await label.getAttribute('for');
-  let input = forAttr
-    ? page.locator(`#${forAttr}`)
-    : label.locator('xpath=..').locator('input, textarea').first();
-
-  await expect(input).toBeVisible({ timeout: 1000 });
-  await setInputValue(input, value);
-}
-
-async function selectMatOptionByLabel(page: Page, labelText: string, optionText: string) {
-  // First attempt: use accessible label and option roles
-  try {
-    const field = page.getByLabel(labelText, { exact: true });
-    await field.click({ timeout: 1000 });
-    await selectMatOption(page, optionText);
-    return;
-  } catch {}
-
-  // Fallback: locate custom bq-select container by label text
-  try {
-    const container = page.locator('bq-select', {
-      has: page.locator(`label:has-text("${labelText}")`),
-    });
-    await container.waitFor({ state: 'visible', timeout: 1000 });
-    const trigger = container.locator('.mat-mdc-select-trigger');
-    await trigger.click({ timeout: 1000 });
-    await selectMatOption(page, optionText);
-    return;
-  } catch {}
-
-  // Last resort: click the label's "for" target and pick the option by text
-  const label = page.locator(`label:has-text("${labelText}")`).first();
-  await label.waitFor({ state: 'visible', timeout: 1000 });
-  const forAttribute = await label.getAttribute('for');
-  if (forAttribute) {
-    await page.locator(`#${forAttribute}`).click({ timeout: 1000 });
-  } else {
-    await label.click({ timeout: 1000 });
-  }
-  await selectMatOption(page, optionText);
-}
-
-async function setRadioByLabel(
-  page: Page,
-  groupLabel: string | RegExp,
-  optionText: string
-) {
-  // Try accessible role-based lookup first
-  try {
-    const group = page.getByRole('radiogroup', { name: groupLabel });
-    const option = group.getByLabel(optionText, { exact: true });
-    await option.check({ timeout: 1000 });
-    return;
-  } catch {}
-
-  // Fallback: locate the custom radio container by label text and click the option label
-  try {
-    const container = page.locator('bq-radio-button', {
-      has: page.locator('label', { hasText: groupLabel }),
-    });
-    await container.waitFor({ state: 'visible', timeout: 1000 });
-    const optionLabel = container.locator('label', { hasText: optionText }).first();
-    await optionLabel.click({ timeout: 1000 });
-    return;
-  } catch {}
-
-  // Last resort: rely on unique option label without group context
-  const fallback = page.getByLabel(optionText, { exact: true });
-  await expect(fallback).toBeVisible();
-  await fallback.check();
-}
-
-async function setCheckboxByLabel(
-  page: Page,
-  labelText: string | RegExp
-) {
-  // Try accessible role or label lookup first
-  try {
-    const checkbox = page.getByRole('checkbox', { name: labelText });
-    await checkbox.check({ timeout: 1000 });
-    return;
-  } catch {}
-
-  try {
-    const checkbox = page.getByLabel(labelText, { exact: true });
-    await checkbox.check({ timeout: 1000 });
-    return;
-  } catch {}
-
-  // Fallback: locate custom checkbox container by label text
-  try {
-    const container = page.locator('bq-checkbox', {
-      has: page.locator('label', { hasText: labelText }),
-    });
-    await container.waitFor({ state: 'visible', timeout: 1000 });
-    // Some custom checkbox implementations hide the native input,
-    // making check() unreliable. Click the label instead so the
-    // associated input toggles regardless of visibility.
-    const label = container.locator('label', { hasText: labelText }).first();
-    await label.click({ timeout: 1000 });
-    return;
-  } catch {}
-
-  // Last resort: resolve via label "for" attribute
-  const label = page.locator('label', { hasText: labelText }).first();
-  await label.waitFor({ state: 'visible', timeout: 1000 });
-  const forAttr = await label.getAttribute('for');
-  const input = forAttr
-    ? page.locator(`#${forAttr}`)
-    : label.locator('input[type="checkbox"]').first();
-  try {
-    await input.check({ timeout: 1000 });
-  } catch {
-    // Fallback: if the input is hidden, clicking the label still
-    // toggles the checkbox.
-    await label.click({ timeout: 1000 });
-  }
-}
-
-async function clickProceed(page: Page, buttonText: string = 'Next') {
-  // Prefer the last visible button matching the provided text to avoid
-  // accidentally clicking items in the side navigation.
-  let button = page.getByRole('button', { name: buttonText }).last();
-  await expect(button).toBeVisible({ timeout: 10000 });
-  await expect(button).toBeEnabled({ timeout: 10000 });
-
-  // Scroll into view to ensure the click is not intercepted by sticky UI
-  await button.scrollIntoViewIfNeeded();
-
-  try {
-    await button.click({ timeout: 10000 });
-  } catch {
-    // Fallback: sometimes Angular animations block a standard click,
-    // so trigger it via the DOM API.
-    console.log(`Standard click on "${buttonText}" button failed, falling back to DOM click()`);
-    await button.evaluate((el: HTMLElement) => el.click());
-  }
-
-  await waitForStableLoad(page);
-}
-
-function formatDateToDutchLocale(dotDate: string): string {
-  // input: DD.MM.YYYY  -> output: DD-MM-YYYY
-  return dotDate.replace(/\./g, '-');
-}
-
-async function pdokLookupPostalCode(page: Page, street: string, houseNumber: string, city: string): Promise<string> {
-  // PDOK free geocoding lookup; we try to obtain a postcode by a combined query
-  const query = `${street} ${houseNumber}, ${city}`;
-  const lookupUrl =
-    `https://api.pdok.nl/bzk/locatieserver/search/v3_1/free?q=${encodeURIComponent(query)}&rows=5`;
-  const response = await page.request.get(lookupUrl);
-  if (!response.ok()) {
-    throw new Error(`PDOK request failed with status ${response.status()}`);
-  }
-  const responseData = await response.json();
-  const docs = (responseData as any)?.response?.docs || [];
-  for (const doc of docs) {
-    const postcode = doc?.postcode || doc?.postalcode || doc?.pc6;
-    if (postcode) return postcode;
-  }
-  throw new Error(`PDOK: No postcode found for query: ${query}`);
-}
-
-// -------------------------------
 // Main test
 // -------------------------------
 test('End-to-end notification flow', async ({ page }) => {
   // SECTION 1 — Login and open new notification
-  await page.goto('https://meldloket.postedworkers.nl/runtime/start-login?lang=en');
+  await page.goto('/runtime/start-login?lang=en');
   await waitForStableLoad(page);
 
   // Close cookie modal if present
@@ -489,7 +262,7 @@ test('End-to-end notification flow', async ({ page }) => {
   const workLocationCity = workLocation.city;
   const workLocationHouseNumber = workLocation.house_number;
   const derivedPostcode = await pdokLookupPostalCode(
-    page,
+    page.request,
     workLocationStreet,
     workLocationHouseNumber,
     workLocationCity
