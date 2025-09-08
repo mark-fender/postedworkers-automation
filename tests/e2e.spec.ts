@@ -354,7 +354,13 @@ test('End-to-end notification flow', async ({ page }) => {
 
   // Confirm result: click the "Select" action if available
   try {
-    await page.getByText('Select', { exact: true }).click({ timeout: 3000 });
+    const selectButtons = page.locator('text=Select', { hasText: 'Select' });
+    const count = await selectButtons.count();
+    if (count > 0) {
+      await selectButtons.first().click({ timeout: 3000 });
+    } else {
+      throw new Error('No "Select" button found');
+    }
     await waitForStableLoad(page);
   } catch {
     // Fallback: choose manual entry and close result dialog
@@ -445,7 +451,7 @@ test('End-to-end notification flow', async ({ page }) => {
   // Does the workplace in NL have a known address? -> Yes
   await setRadioByLabel(
     page,
-    'Does the workplace in the Netherlands have a known address? *',
+    'Does the workplace in the Netherlands have a known address?',
     'Yes'
   );
 
