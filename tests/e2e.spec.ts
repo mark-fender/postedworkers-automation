@@ -196,7 +196,23 @@ async function setCheckboxByLabel(
 }
 
 async function clickProceed(page: Page, buttonText: string = 'Next') {
-  await page.getByRole('button', { name: buttonText }).click();
+  // Prefer the last visible button matching the provided text to avoid
+  // accidentally clicking items in the side navigation.
+  let button = page.getByRole('button', { name: buttonText }).last();
+  await expect(button).toBeVisible({ timeout: 10000 });
+  await expect(button).toBeEnabled({ timeout: 10000 });
+
+  // Scroll into view to ensure the click is not intercepted by sticky UI
+  await button.scrollIntoViewIfNeeded();
+
+  try {
+    await button.click({ timeout: 5000 });
+  } catch {
+    // Fallback: sometimes Angular animations block a standard click,
+    // so trigger it via the DOM API.
+    await button.evaluate((el: HTMLElement) => el.click());
+  }
+
   await waitForStableLoad(page);
 }
 
