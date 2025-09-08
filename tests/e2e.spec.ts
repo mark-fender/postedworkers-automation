@@ -549,12 +549,14 @@ test('End-to-end notification flow', async ({ page }) => {
 
   // Confirmation dialog requires clicking OK before leaving
   const okButton = page.getByRole('button', { name: 'OK' }).first();
-  if (await okButton.isVisible().catch(() => false)) {
+  await expect(okButton).toBeVisible({ timeout: 10000 });
+  await okButton.click();
+  const logoutLink = page.getByText('Logout', { exact: false });
+  try {
+    await expect(logoutLink).toBeVisible({ timeout: 3000 });
+  } catch {
     await okButton.click();
-    await waitForStableLoad(page);
   }
-
-  // Logout
-  await page.getByText('Logout', { exact: false }).click();
+  await logoutLink.click();
   await waitForStableLoad(page);
 });
