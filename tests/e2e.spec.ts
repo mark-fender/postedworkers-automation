@@ -171,8 +171,11 @@ async function setCheckboxByLabel(
       has: page.locator('label', { hasText: labelText }),
     });
     await container.waitFor({ state: 'visible', timeout: 1000 });
-    const input = container.locator('input[type="checkbox"]').first();
-    await input.check({ timeout: 1000 });
+    // Some custom checkbox implementations hide the native input,
+    // making check() unreliable. Click the label instead so the
+    // associated input toggles regardless of visibility.
+    const label = container.locator('label', { hasText: labelText }).first();
+    await label.click({ timeout: 1000 });
     return;
   } catch {}
 
@@ -183,7 +186,13 @@ async function setCheckboxByLabel(
   const input = forAttr
     ? page.locator(`#${forAttr}`)
     : label.locator('input[type="checkbox"]').first();
-  await input.check({ timeout: 1000 });
+  try {
+    await input.check({ timeout: 1000 });
+  } catch {
+    // Fallback: if the input is hidden, clicking the label still
+    // toggles the checkbox.
+    await label.click({ timeout: 1000 });
+  }
 }
 
 async function clickProceed(page: Page, buttonText: string = 'Next') {
@@ -506,9 +515,9 @@ test('End-to-end notification flow', async ({ page }) => {
   // SECTION 7 — Summary: confirm declaration and submit
   await setCheckboxByLabel(
     page,
-    'With this I declare all questions have been answered truthfully.'
+    /With this I declare all questions have been answered truthfully\./
   );
-  // await page.getByRole('button', { name: 'Submit notification' }).click();
+  // await page.getByRole('button', { name: /Submit notification/i }).click();
 
   // Logout
   await waitForStableLoad(page);
