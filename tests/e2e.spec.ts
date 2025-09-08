@@ -199,16 +199,16 @@ function formatDateToDutchLocale(dotDate: string): string {
 async function pdokLookupPostalCode(page: Page, street: string, houseNumber: string, city: string): Promise<string> {
   // PDOK free geocoding lookup; we try to obtain a postcode by a combined query
   const query = `${street} ${houseNumber}, ${city}`;
-  const lookupUrl = `https://geocoding-api.pdok.nl/v3/free?q=${encodeURIComponent(query)}&limit=5`;
+  const lookupUrl =
+    `https://api.pdok.nl/bzk/locatieserver/search/v3_1/free?q=${encodeURIComponent(query)}&rows=5`;
   const response = await page.request.get(lookupUrl);
   if (!response.ok()) {
     throw new Error(`PDOK request failed with status ${response.status()}`);
   }
   const responseData = await response.json();
-  const responseFeatures = (responseData as any)?.features || [];
-  for (const responseFeature of responseFeatures) {
-    const postcode =
-      responseFeature?.properties?.postcode || responseFeature?.properties?.postalcode;
+  const docs = (responseData as any)?.response?.docs || [];
+  for (const doc of docs) {
+    const postcode = doc?.postcode || doc?.postalcode || doc?.pc6;
     if (postcode) return postcode;
   }
   throw new Error(`PDOK: No postcode found for query: ${query}`);
