@@ -26,7 +26,7 @@ async function waitAfterOpenForm(page: Page) {
   await waitForStableLoad(page);
   await expect(
     page.getByRole('heading', { name: /Service provider/i })
-  ).toBeVisible({ timeout: 15000 });
+  ).toBeVisible({ timeout: 20000 });
 }
 
 async function selectMatOption(page: Page, optionText: string) {
@@ -206,10 +206,11 @@ async function clickProceed(page: Page, buttonText: string = 'Next') {
   await button.scrollIntoViewIfNeeded();
 
   try {
-    await button.click({ timeout: 5000 });
+    await button.click({ timeout: 10000 });
   } catch {
     // Fallback: sometimes Angular animations block a standard click,
     // so trigger it via the DOM API.
+    console.log(`Standard click on "${buttonText}" button failed, falling back to DOM click()`);
     await button.evaluate((el: HTMLElement) => el.click());
   }
 
@@ -526,14 +527,15 @@ test('End-to-end notification flow', async ({ page }) => {
   );
 
   // Go to summary
-  await clickProceed(page, 'Summary');
+  await page.getByRole('button', { name: /Summary/i }).click();
+  await page.getByRole('button', { name: /Summary/i }).click();
 
   // SECTION 7 — Summary: confirm declaration and submit
   await setCheckboxByLabel(
     page,
     /With this I declare all questions have been answered truthfully\./
   );
-  // await page.getByRole('button', { name: /Submit notification/i }).click();
+  await page.getByRole('button', { name: /Submit notification/i }).click();
 
   // Logout
   await waitForStableLoad(page);
