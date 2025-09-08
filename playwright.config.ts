@@ -8,8 +8,7 @@ export default defineConfig({
   retries: 0,
   reporter: [['list'], ['html', { outputFolder: 'playwright-report', open: 'never' }]],
   use: {
-    // We use absolute URLs inside the test, but you can set baseURL if you prefer.
-    // baseURL: '',
+    baseURL: 'https://meldloket.postedworkers.nl',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
