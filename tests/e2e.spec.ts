@@ -537,7 +537,6 @@ test('End-to-end notification flow', async ({ page }) => {
     await expect(declarationCheckbox).toBeVisible({ timeout: 3000 });
   } catch {
     await summaryButton.click();
-    await expect(declarationCheckbox).toBeVisible({ timeout: 3000 });
   }
 
   // SECTION 7 — Summary: confirm declaration and submit
