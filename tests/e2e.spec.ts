@@ -546,9 +546,16 @@ test('End-to-end notification flow', async ({ page }) => {
     /With this I declare all questions have been answered truthfully\./
   );
   await page.getByRole('button', { name: /Submit notification/i }).click();
+  await waitForStableLoad(page);
+
+  // Confirmation dialog requires clicking OK before leaving
+  const okButton = page.getByRole('button', { name: 'OK' }).first();
+  if (await okButton.isVisible().catch(() => false)) {
+    await okButton.click();
+    await waitForStableLoad(page);
+  }
 
   // Logout
-  await waitForStableLoad(page);
   await page.getByText('Logout', { exact: false }).click();
   await waitForStableLoad(page);
 });
