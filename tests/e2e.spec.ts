@@ -527,8 +527,18 @@ test('End-to-end notification flow', async ({ page }) => {
   );
 
   // Go to summary
-  await page.getByRole('button', { name: /Summary/i }).click();
-  await page.getByRole('button', { name: /Summary/i }).click();
+  const summaryButton = page.getByRole('button', { name: /Summary/i });
+  const declarationCheckbox = page.getByRole('checkbox', {
+    name: /With this I declare all questions have been answered truthfully\./,
+  });
+
+  await summaryButton.click();
+  try {
+    await expect(declarationCheckbox).toBeVisible({ timeout: 3000 });
+  } catch {
+    await summaryButton.click();
+    await expect(declarationCheckbox).toBeVisible({ timeout: 3000 });
+  }
 
   // SECTION 7 — Summary: confirm declaration and submit
   await setCheckboxByLabel(
