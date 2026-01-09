@@ -59,11 +59,11 @@ test('End-to-end notification flow', async ({ page }) => {
   // Sector -> F. Construction
   await selectMatOptionByLabel(page, 'Sector', 'F. Construction');
 
-  // Subsector -> 41 Construction of buildings and development of building projects
-  await selectMatOptionByLabel(page, 'Subsector', '41 Construction of buildings and development of building projects');
+  // Subsector -> 41 Construction of residential and non-residential buildings
+  await selectMatOptionByLabel(page, 'Subsector', '41 Construction of residential and non-residential buildings');
 
   // Branch code -> 4120 Construction of residential and non-residential buildings
-  await selectMatOptionByLabel(page, 'Branch code', '4120 Construction of residential and non-residential buildings');
+  await selectMatOptionByLabel(page, 'Branch code', '41.00 Construction of residential and non-residential buildings');
 
   // Country of establishment -> Slovakia
   await selectMatOptionByLabel(page, 'Country of establishment', 'Slovakia');
@@ -306,11 +306,11 @@ test('End-to-end notification flow', async ({ page }) => {
   });
 
   await summaryButton.click();
-  try {
-    await expect(declarationCheckbox).toBeVisible({ timeout: 3000 });
-  } catch {
-    await summaryButton.click();
-  }
+  // try {
+  //   await expect(declarationCheckbox).toBeVisible({ timeout: 5000 });
+  // } catch {
+  //   await summaryButton.click();
+  // }
 
   // SECTION 7 — Summary: confirm declaration and submit
   await setCheckboxByLabel(
