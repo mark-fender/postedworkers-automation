@@ -1,6 +1,6 @@
 import 'dotenv/config';
 
-import { test, expect } from '@playwright/test';
+import { test, expect, Page, Locator } from '@playwright/test';
 import workLocation from '../work_location.json';
 import { requireEnv } from '../utils/env';
 import { waitForStableLoad, waitAfterOpenForm } from '../utils/wait';
@@ -14,9 +14,62 @@ import {
 import { formatDateToDutchLocale } from '../utils/date';
 import { pdokLookupPostalCode } from '../utils/pdok';
 
+async function waitForSubmitOutcome(
+  page: Page,
+  submitButton: Locator,
+  okButton: Locator,
+  nativeDialogSeen: () => boolean,
+  timeoutMs = 60000
+): Promise<'dom-ok' | 'native-dialog' | 'submitted' | 'pending'> {
+  const submittedHeading = page.getByRole('heading', { name: /Notification submitted/i });
+  const submittedDialogHeading = page.getByRole('heading', {
+    name: /notif(?:i)?cation submitted/i,
+  });
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    if (nativeDialogSeen()) return 'native-dialog';
+    if (await okButton.isVisible().catch(() => false)) return 'dom-ok';
+    if (await submittedHeading.isVisible().catch(() => false)) return 'submitted';
+    if (await submittedDialogHeading.isVisible().catch(() => false)) return 'submitted';
+    if (!(await submitButton.isVisible().catch(() => false))) return 'submitted';
+
+    await page.waitForTimeout(250);
+  }
+
+  return 'pending';
+}
+
+async function waitForSpinnerOverlayToDisappear(page: Page, timeoutMs = 30000) {
+  const spinnerOverlay = page.locator('bq-loading-spinner .loading-wrapper').first();
+  if (await spinnerOverlay.isVisible().catch(() => false)) {
+    await spinnerOverlay.waitFor({ state: 'hidden', timeout: timeoutMs });
+  }
+}
+
+async function dismissMessagesForYouModalIfPresent(page: Page) {
+  const messagesForYou = page.getByText(/Messages for you/i).first();
+  if (!(await messagesForYou.isVisible({ timeout: 2000 }).catch(() => false))) {
+    return;
+  }
+
+  await setCheckboxByLabel(page, /Do not show this message again/i);
+
+  const modal = page.locator('.modal-content', { hasText: /Messages for you/i }).first();
+  const modalOkButton = modal.getByRole('button', { name: /^OK$/i }).first();
+  if (await modalOkButton.isVisible({ timeout: 1000 }).catch(() => false)) {
+    await modalOkButton.click();
+  } else {
+    await page.getByRole('button', { name: /^OK$/i }).first().click();
+  }
+  await waitForStableLoad(page);
+}
+
 // Main test
 // -------------------------------
 test('End-to-end notification flow', async ({ page }) => {
+  test.slow();
+
   // SECTION 1 — Login and open new notification
   await page.goto('/runtime/start-login?lang=en');
   await waitForStableLoad(page);
@@ -45,13 +98,29 @@ test('End-to-end notification flow', async ({ page }) => {
   await page.click('button[type="submit"]');
   await waitForStableLoad(page);
 
+  // Close "Messages for you" prompt when shown after login
+  await dismissMessagesForYouModalIfPresent(page);
+
   // Open new notification (use provided selector)
   await page.getByRole('menuitem', { name: 'New notification' }).click();
   await waitAfterOpenForm(page);
 
   // SECTION 2 — First form page: worker/project basics
-  // Are you self-employed? -> Yes
-  await setRadioByLabel(page, 'Are you self-employed?', 'Yes');
+  // Are you self-employed? -> first radio option (Yes)
+  const selfEmployedFirstRadio = page
+    .getByRole('group', { name: 'Are you self-employed?' })
+    .getByRole('radio')
+    .first();
+  await selfEmployedFirstRadio.evaluate((el) => {
+    const input = el as HTMLInputElement;
+    input.click();
+    if (!input.checked) {
+      input.checked = true;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  });
+  await expect(selfEmployedFirstRadio).toBeChecked();
 
   // Once-a-year notification? -> No
   await setRadioByLabel(page, 'Once-a-year notification?', 'No');
@@ -79,7 +148,7 @@ test('End-to-end notification flow', async ({ page }) => {
   await clickProceed(page);
 
   // SECTION 3 — Notifier personal details
-  await fillTextByLabel(page, 'First name', requireEnv('NOTIFIER_FIRST_NAME'));
+  await fillTextByLabel(page, 'First name *', requireEnv('NOTIFIER_FIRST_NAME'));
   await fillTextByLabel(page, 'Surname', requireEnv('NOTIFIER_LAST_NAME'));
 
   // Only Mobile phone number is required
@@ -298,6 +367,13 @@ test('End-to-end notification flow', async ({ page }) => {
     'Country of issue',
     'Slovakia (EEA)'
   );
+  const a1Number = (process.env.A1_CERTIFICATE_NUMBER ?? '123456789').trim();
+  const a1NumberField = page.getByLabel(/^Number(\s*\*)?$/).first();
+  if (await a1NumberField.isVisible({ timeout: 1500 }).catch(() => false)) {
+    await a1NumberField.fill(a1Number);
+    await expect(a1NumberField).toHaveValue(a1Number);
+    await a1NumberField.press('Tab').catch(() => {});
+  }
 
   // Go to summary
   const summaryButton = page.getByRole('button', { name: /Summary/i });
@@ -317,19 +393,44 @@ test('End-to-end notification flow', async ({ page }) => {
     page,
     /With this I declare all questions have been answered truthfully\./
   );
-  await page.getByRole('button', { name: /Submit notification/i }).click();
+  const submitButton = page.getByRole('button', { name: /Submit notification/i });
+  await expect(submitButton).toBeVisible({ timeout: 10000 });
+  await expect(submitButton).toBeEnabled({ timeout: 10000 });
+  await waitForSpinnerOverlayToDisappear(page);
+
+  let nativeDialogHandled = false;
+  page.once('dialog', async (dialog) => {
+    nativeDialogHandled = true;
+    await dialog.accept();
+  });
+
+  await submitButton.click({ timeout: 15000 });
   await waitForStableLoad(page);
 
-  // Confirmation dialog requires clicking OK before leaving
-  const okButton = page.getByRole('button', { name: 'OK' }).first();
-  await expect(okButton).toBeVisible({ timeout: 10000 });
-  await okButton.click();
-  const logoutLink = page.getByText('Logout', { exact: false });
-  try {
-    await expect(logoutLink).toBeVisible({ timeout: 3000 });
-  } catch {
+  const okButton = page.getByRole('button', { name: /^OK$/i }).first();
+  const submitOutcome = await waitForSubmitOutcome(
+    page,
+    submitButton,
+    okButton,
+    () => nativeDialogHandled
+  );
+
+  if (submitOutcome === 'dom-ok') {
+    await waitForSpinnerOverlayToDisappear(page);
     await okButton.click();
+    await waitForStableLoad(page);
   }
+
+  expect(submitOutcome).not.toBe('pending');
+
+  const logoutLink = page
+    .locator('a', { hasText: /Employer\/self-employed/i })
+    .filter({ hasText: /Log ?out/i })
+    .first();
+  if (!(await logoutLink.isVisible({ timeout: 4000 }).catch(() => false))) {
+    await page.getByRole('menuitem', { name: /My notification/i }).click().catch(() => {});
+  }
+  await expect(logoutLink).toBeVisible({ timeout: 10000 });
   await logoutLink.click();
   await waitForStableLoad(page);
 });
