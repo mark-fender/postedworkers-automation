@@ -104,8 +104,38 @@ export async function setRadioByLabel(
   } catch {}
 
   const fallback = page.getByLabel(optionText, { exact: true });
-  await expect(fallback).toBeVisible();
-  await fallback.check();
+  await expect(fallback.first()).toBeAttached();
+
+  const deadline = Date.now() + 15000;
+  let matchedCount = 0;
+  while (Date.now() < deadline) {
+    const options = await fallback.all();
+    matchedCount = options.length;
+    let selectedCount = 0;
+
+    for (const option of options) {
+      if (!(await option.isVisible().catch(() => false))) {
+        continue;
+      }
+
+      try {
+        await option.check({ timeout: 1000 });
+      } catch {
+        await option.click({ timeout: 1000 });
+      }
+      selectedCount++;
+    }
+
+    if (selectedCount > 0) {
+      return;
+    }
+
+    await page.waitForTimeout(250);
+  }
+
+  throw new Error(
+    `No visible radio option "${optionText}" found for group "${String(groupLabel)}" among ${matchedCount} matches`
+  );
 }
 
 export async function setCheckboxByLabel(

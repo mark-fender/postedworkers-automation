@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "postinstall": "playwright install chromium",
     "test": "playwright test",
     "test:headed": "playwright test --headed",
     "codegen": "playwright codegen",
@@ -14,7 +15,7 @@
   "license": "ISC",
   "type": "commonjs",
   "devDependencies": {
-    "@playwright/test": "^1.55.0",
+    "@playwright/test": "1.55.0",
     "@types/node": "^24.3.0"
   },
   "dependencies": {

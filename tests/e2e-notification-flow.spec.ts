@@ -1,9 +1,14 @@
 import 'dotenv/config';
 
-import { test, expect, Page, Locator } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import workLocation from '../work_location.json';
 import { requireEnv } from '../utils/env';
-import { waitForStableLoad, waitAfterOpenForm } from '../utils/wait';
+import {
+  waitForStableLoad,
+  waitAfterOpenForm,
+  waitForSpinnerOverlayToDisappear,
+  waitForSubmitOutcome,
+} from '../utils/wait';
 import {
   selectMatOptionByLabel,
   setRadioByLabel,
@@ -13,63 +18,14 @@ import {
 } from '../utils/elements';
 import { formatDateToDutchLocale } from '../utils/date';
 import { pdokLookupPostalCode } from '../utils/pdok';
-
-async function waitForSubmitOutcome(
-  page: Page,
-  submitButton: Locator,
-  okButton: Locator,
-  nativeDialogSeen: () => boolean,
-  timeoutMs = 60000
-): Promise<'dom-ok' | 'native-dialog' | 'submitted' | 'pending'> {
-  const submittedHeading = page.getByRole('heading', { name: /Notification submitted/i });
-  const submittedDialogHeading = page.getByRole('heading', {
-    name: /notif(?:i)?cation submitted/i,
-  });
-  const deadline = Date.now() + timeoutMs;
-
-  while (Date.now() < deadline) {
-    if (nativeDialogSeen()) return 'native-dialog';
-    if (await okButton.isVisible().catch(() => false)) return 'dom-ok';
-    if (await submittedHeading.isVisible().catch(() => false)) return 'submitted';
-    if (await submittedDialogHeading.isVisible().catch(() => false)) return 'submitted';
-    if (!(await submitButton.isVisible().catch(() => false))) return 'submitted';
-
-    await page.waitForTimeout(250);
-  }
-
-  return 'pending';
-}
-
-async function waitForSpinnerOverlayToDisappear(page: Page, timeoutMs = 30000) {
-  const spinnerOverlay = page.locator('bq-loading-spinner .loading-wrapper').first();
-  if (await spinnerOverlay.isVisible().catch(() => false)) {
-    await spinnerOverlay.waitFor({ state: 'hidden', timeout: timeoutMs });
-  }
-}
-
-async function dismissMessagesForYouModalIfPresent(page: Page) {
-  const messagesForYou = page.getByText(/Messages for you/i).first();
-  if (!(await messagesForYou.isVisible({ timeout: 2000 }).catch(() => false))) {
-    return;
-  }
-
-  await setCheckboxByLabel(page, /Do not show this message again/i);
-
-  const modal = page.locator('.modal-content', { hasText: /Messages for you/i }).first();
-  const modalOkButton = modal.getByRole('button', { name: /^OK$/i }).first();
-  if (await modalOkButton.isVisible({ timeout: 1000 }).catch(() => false)) {
-    await modalOkButton.click();
-  } else {
-    await page.getByRole('button', { name: /^OK$/i }).first().click();
-  }
-  await waitForStableLoad(page);
-}
+import {
+  clickLogout,
+  dismissMessagesForYouModalIfPresent,
+} from '../utils/session';
 
 // Main test
 // -------------------------------
 test('End-to-end notification flow', async ({ page }) => {
-  test.slow();
-
   // SECTION 1 — Login and open new notification
   await page.goto('/runtime/start-login?lang=en');
   await waitForStableLoad(page);
@@ -377,16 +333,8 @@ test('End-to-end notification flow', async ({ page }) => {
 
   // Go to summary
   const summaryButton = page.getByRole('button', { name: /Summary/i });
-  const declarationCheckbox = page.getByRole('checkbox', {
-    name: /With this I declare all questions have been answered truthfully\./,
-  });
 
   await summaryButton.click();
-  // try {
-  //   await expect(declarationCheckbox).toBeVisible({ timeout: 5000 });
-  // } catch {
-  //   await summaryButton.click();
-  // }
 
   // SECTION 7 — Summary: confirm declaration and submit
   await setCheckboxByLabel(
@@ -423,14 +371,5 @@ test('End-to-end notification flow', async ({ page }) => {
 
   expect(submitOutcome).not.toBe('pending');
 
-  const logoutLink = page
-    .locator('a', { hasText: /Employer\/self-employed/i })
-    .filter({ hasText: /Log ?out/i })
-    .first();
-  if (!(await logoutLink.isVisible({ timeout: 4000 }).catch(() => false))) {
-    await page.getByRole('menuitem', { name: /My notification/i }).click().catch(() => {});
-  }
-  await expect(logoutLink).toBeVisible({ timeout: 10000 });
-  await logoutLink.click();
-  await waitForStableLoad(page);
+  await clickLogout(page);
 });
