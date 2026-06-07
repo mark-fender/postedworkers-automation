@@ -21,6 +21,7 @@ import { pdokLookupPostalCode } from '../utils/pdok';
 import {
   clickLogout,
   dismissMessagesForYouModalIfPresent,
+  dismissNotificationSubmittedModalIfPresent,
 } from '../utils/session';
 
 // Main test
@@ -363,13 +364,8 @@ test('End-to-end notification flow', async ({ page }) => {
     () => nativeDialogHandled
   );
 
-  if (submitOutcome === 'dom-ok') {
-    await waitForSpinnerOverlayToDisappear(page);
-    await okButton.click();
-    await waitForStableLoad(page);
-  }
-
   expect(submitOutcome).not.toBe('pending');
 
+  await dismissNotificationSubmittedModalIfPresent(page);
   await clickLogout(page);
 });

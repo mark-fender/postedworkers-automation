@@ -24,6 +24,45 @@ export async function dismissMessagesForYouModalIfPresent(page: Page) {
   await waitForStableLoad(page);
 }
 
+export async function dismissNotificationSubmittedModalIfPresent(page: Page) {
+  const submittedDialog = page
+    .locator(
+      '.cdk-overlay-container cdk-dialog-container[role="dialog"][aria-modal="true"] .modal.modal--open'
+    )
+    .filter({ hasText: /(?:New\s+)?notif(?:i)?cation\s+submitted/i })
+    .first();
+
+  if (
+    !(await submittedDialog
+      .waitFor({ state: 'visible', timeout: 10000 })
+      .then(() => true)
+      .catch(() => false))
+  ) {
+    return;
+  }
+
+  const modalOkButton = submittedDialog
+    .locator('button')
+    .filter({ hasText: /^\s*OK\s*$/ })
+    .first();
+
+  await expect(modalOkButton, 'OK button in the notification submitted modal').toBeVisible();
+
+  try {
+    await modalOkButton.click({ timeout: 5000 });
+  } catch {
+    console.log('Standard modal OK click failed, falling back to DOM click()');
+    await modalOkButton.evaluate((element: HTMLElement) => element.click());
+  }
+
+  await expect(submittedDialog, 'Notification submitted modal should close').not.toBeVisible();
+  await expect(
+    page.locator('.cdk-overlay-backdrop.cdk-overlay-backdrop-showing'),
+    'Notification submitted modal backdrop should disappear'
+  ).not.toBeVisible();
+  await waitForSpinnerOverlayToDisappear(page, 10000).catch(() => {});
+}
+
 export async function clickLogout(page: Page) {
   await waitForSpinnerOverlayToDisappear(page, 10000).catch(() => {});
 
