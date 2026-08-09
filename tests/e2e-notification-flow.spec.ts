@@ -2,7 +2,7 @@ import 'dotenv/config';
 
 import { test, expect } from '@playwright/test';
 import workLocation from '../work_location.json';
-import { requireEnv } from '../utils/env';
+import { nextLoginPassword, requireEnv, updateEnvValue } from '../utils/env';
 import {
   waitForStableLoad,
   waitAfterOpenForm,
@@ -54,6 +54,28 @@ test('End-to-end notification flow', async ({ page }) => {
   await page.fill('input[id="password"]', requireEnv('LOGIN_PASSWORD'));
   await page.click('button[type="submit"]');
   await waitForStableLoad(page);
+
+  // The identity provider can require a password update after sign-in. Derive
+  // the new password from LOGIN_PASSWORD and persist it after a successful reset.
+  const passwordResetForm = page.locator('form[action*="reset-password"]');
+  if (await passwordResetForm.isVisible({ timeout: 5000 }).catch(() => false)) {
+    const newPassword = nextLoginPassword(requireEnv('LOGIN_PASSWORD'));
+    await passwordResetForm.locator('#newPassword').fill(newPassword);
+    await passwordResetForm.locator('#newPasswordConfirm').fill(newPassword);
+    await passwordResetForm.locator('button[type="submit"]').click();
+    await waitForStableLoad(page);
+    await passwordResetForm.waitFor({ state: 'hidden', timeout: 15000 });
+    await updateEnvValue('LOGIN_PASSWORD', newPassword);
+
+    // A successful reset returns to the identity-provider login screen. Sign in
+    // again with the password just stored in .env before continuing the flow.
+    await expect(page.locator('input#userId')).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('input#password')).toBeVisible({ timeout: 15000 });
+    await page.fill('input#userId', requireEnv('LOGIN_EMAIL'));
+    await page.fill('input#password', requireEnv('LOGIN_PASSWORD'));
+    await page.locator('button[type="submit"]').click();
+    await waitForStableLoad(page);
+  }
 
   // Close "Messages for you" prompt when shown after login
   await dismissMessagesForYouModalIfPresent(page);

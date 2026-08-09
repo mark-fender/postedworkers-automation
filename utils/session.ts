@@ -25,37 +25,37 @@ export async function dismissMessagesForYouModalIfPresent(page: Page) {
 }
 
 export async function dismissNotificationSubmittedModalIfPresent(page: Page) {
-  const submittedDialog = page
-    .locator(
-      '.cdk-overlay-container cdk-dialog-container[role="dialog"][aria-modal="true"] .modal.modal--open'
-    )
-    .filter({ hasText: /(?:New\s+)?notif(?:i)?cation\s+submitted/i })
+  // The current portal markup misspells this as "New notifcation submitted".
+  // Keep accepting the correctly spelled version in case the portal fixes it.
+  const submittedHeading = page
+    .getByRole('heading', { name: /New notif(?:i)?cation submitted/i })
     .first();
 
-  if (
-    !(await submittedDialog
-      .waitFor({ state: 'visible', timeout: 10000 })
-      .then(() => true)
-      .catch(() => false))
-  ) {
+  if (!(await submittedHeading.isVisible({ timeout: 10000 }).catch(() => false))) {
     return;
   }
 
-  const modalOkButton = submittedDialog
-    .locator('button')
-    .filter({ hasText: /^\s*OK\s*$/ })
-    .first();
+  // The portal has used both CDK dialogs and plain modal containers for this
+  // confirmation. Locate the dialog around its heading, with a page-level
+  // fallback for the visible OK button.
+  const submittedDialog = submittedHeading.locator(
+    'xpath=ancestor-or-self::*[@role="dialog" or contains(concat(" ", normalize-space(@class), " "), " modal ")][1]'
+  );
+  const modalOkButton = submittedDialog.getByRole('button', { name: /^OK$/i }).first();
+  const okButton = (await modalOkButton.isVisible({ timeout: 1000 }).catch(() => false))
+    ? modalOkButton
+    : page.getByRole('button', { name: /^OK$/i }).last();
 
-  await expect(modalOkButton, 'OK button in the notification submitted modal').toBeVisible();
+  await expect(okButton, 'OK button in the notification submitted modal').toBeVisible();
 
   try {
-    await modalOkButton.click({ timeout: 5000 });
+    await okButton.click({ timeout: 5000 });
   } catch {
     console.log('Standard modal OK click failed, falling back to DOM click()');
-    await modalOkButton.evaluate((element: HTMLElement) => element.click());
+    await okButton.evaluate((element: HTMLElement) => element.click());
   }
 
-  await expect(submittedDialog, 'Notification submitted modal should close').not.toBeVisible();
+  await expect(submittedHeading, 'Notification submitted modal should close').not.toBeVisible();
   await expect(
     page.locator('.cdk-overlay-backdrop.cdk-overlay-backdrop-showing'),
     'Notification submitted modal backdrop should disappear'
